@@ -16,6 +16,24 @@ from verify_core.common import clear_artifacts, query_backup_latest_version
 # This script runs the replay-verify from the root of aptos-core
 # It assumes the aptos-db-tool binary is already built with the release profile
 
+runner_mapping = {
+    0:[250000000, 265584106],
+    1:[265584107, 281874718],
+    2:[281874719, 305009463],
+    3:[305009464, 324904819],
+    4:[324904820, 347234877],
+    5:[347234878, 366973577],
+    6:[366973578, 399489396],
+    7:[399489397, 410909965],
+    8:[410909966, 421439641],
+    9:[421439642, 432114510],
+    10:[432114511, 457825432],
+    11:[457825433, 479365167],
+    12:[479365168, 516281795],
+    13:[516281796, 551052675],
+    14:[551052676, 582481398],
+    15:[582481399, sys.maxsize]
+}
 
 def replay_verify_partition(
     n: int,
@@ -129,12 +147,14 @@ def main():
     LATEST_VERSION = query_backup_latest_version(BACKUP_CONFIG_TEMPLATE_PATH)
 
     # the runner may have small overlap at the boundary to prevent missing any transactions
-    runner_load = math.ceil((LATEST_VERSION - HISTORY_START) / runner_cnt)
-    runner_start = HISTORY_START + runner_no * runner_load
-    runner_end = runner_start + runner_load
+
+    runner_start = runner_mapping[runner_no][0]
+    runner_end = runner_mapping[runner_no][1]
+    if runner_no == runner_cnt - 1:
+        runner_end = LATEST_VERSION
     print("runner start %d end %d" % (runner_start, runner_end))
     # run replay-verify in parallel
-    N = 32
+    N = 16
     PER_PARTITION = (runner_end - runner_start) // N
 
     with Pool(N) as p:
