@@ -66,6 +66,7 @@ fn simple_generic_module_round_trip() {
         parameters: sig_t1_idx,
         return_: sig_unit_idx,
         type_parameters: vec![AbilitySet::EMPTY],
+        access_specifiers: None,
     });
 
     let mut serialized = Vec::with_capacity(2048);

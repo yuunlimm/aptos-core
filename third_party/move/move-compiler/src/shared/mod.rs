@@ -350,6 +350,10 @@ pub struct Flags {
     /// Debug compiler by printing out internal information
     #[clap(long = cli::DEBUG_FLAG, default_value=debug_compiler_env_var_str())]
     debug: bool,
+
+    /// Support v2 syntax (up to expansion phase)
+    #[clap(long = cli::V2_FLAG)]
+    v2: bool,
 }
 
 impl Flags {
@@ -363,6 +367,7 @@ impl Flags {
             keep_testing_functions: false,
             skip_attribute_checks: false,
             debug: debug_compiler_env_var(),
+            v2: false,
         }
     }
 
@@ -376,6 +381,7 @@ impl Flags {
             keep_testing_functions: false,
             skip_attribute_checks: false,
             debug: debug_compiler_env_var(),
+            v2: false,
         }
     }
 
@@ -389,6 +395,7 @@ impl Flags {
             keep_testing_functions: false,
             skip_attribute_checks: false,
             debug: debug_compiler_env_var(),
+            v2: false,
         }
     }
 
@@ -402,6 +409,7 @@ impl Flags {
             keep_testing_functions: false,
             skip_attribute_checks: false,
             debug: debug_compiler_env_var(),
+            v2: false,
         }
     }
 
@@ -415,6 +423,7 @@ impl Flags {
             keep_testing_functions: true,
             skip_attribute_checks: false,
             debug: false,
+            v2: true,
         }
     }
 
@@ -480,6 +489,14 @@ impl Flags {
 
     pub fn debug(&self) -> bool {
         self.debug
+    }
+
+    pub fn v2(&self) -> bool {
+        self.v2
+    }
+
+    pub fn set_v2(self, v2: bool) -> Self {
+        Self { v2, ..self }
     }
 }
 

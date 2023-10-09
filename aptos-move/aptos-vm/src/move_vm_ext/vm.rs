@@ -15,7 +15,7 @@ use aptos_gas_schedule::{MiscGasParameters, NativeGasParameters};
 use aptos_native_interface::SafeNativeBuilder;
 use aptos_table_natives::NativeTableContext;
 use aptos_types::on_chain_config::{FeatureFlag, Features, TimedFeatureFlag, TimedFeatures};
-use move_binary_format::errors::VMResult;
+use move_binary_format::{errors::VMResult, file_format_common};
 use move_bytecode_verifier::VerifierConfig;
 use move_vm_runtime::{
     config::VMConfig, move_vm::MoveVM, native_extensions::NativeContextExtensions,
@@ -28,11 +28,21 @@ pub struct MoveVmExt {
     features: Arc<Features>,
 }
 
-pub fn get_max_binary_format_version(features: &Features, gas_feature_version: u64) -> u32 {
-    if features.is_enabled(FeatureFlag::VM_BINARY_FORMAT_V6) && gas_feature_version >= 5 {
-        6
+pub fn get_max_binary_format_version(
+    features: &Features,
+    gas_feature_version_opt: Option<u64>,
+) -> u32 {
+    // For historical reasons, we support still < gas version 5, but if a new caller don't specify
+    // the gas version, we default to 5, which was introduced in late '22.
+    let gas_feature_version = gas_feature_version_opt.unwrap_or(5);
+    if gas_feature_version < 5 {
+        file_format_common::VERSION_5
+    } else if features.is_enabled(FeatureFlag::VM_BINARY_FORMAT_V7) {
+        file_format_common::VERSION_7
+    } else if features.is_enabled(FeatureFlag::VM_BINARY_FORMAT_V6) {
+        file_format_common::VERSION_6
     } else {
-        5
+        file_format_common::VERSION_5
     }
 }
 
@@ -54,7 +64,7 @@ impl MoveVmExt {
         //       Therefore it depends on a new version of the gas schedule and cannot be allowed if
         //       the gas schedule hasn't been updated yet.
         let max_binary_format_version =
-            get_max_binary_format_version(&features, gas_feature_version);
+            get_max_binary_format_version(&features, Some(gas_feature_version));
 
         let enable_invariant_violation_check_in_swap_loc =
             !timed_features.is_enabled(TimedFeatureFlag::DisableInvariantViolationCheckInSwapLoc);

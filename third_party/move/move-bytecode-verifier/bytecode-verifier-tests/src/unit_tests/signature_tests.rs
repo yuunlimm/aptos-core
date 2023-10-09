@@ -79,6 +79,7 @@ fn no_verify_locals_good() {
                 return_: SignatureIndex(2),
                 parameters: SignatureIndex(0),
                 type_parameters: vec![],
+                access_specifiers: None,
             },
             FunctionHandle {
                 module: ModuleHandleIndex(0),
@@ -86,6 +87,7 @@ fn no_verify_locals_good() {
                 return_: SignatureIndex(2),
                 parameters: SignatureIndex(1),
                 type_parameters: vec![],
+                access_specifiers: None,
             },
         ],
         field_handles: vec![],
@@ -179,6 +181,7 @@ fn big_signature_test() {
             parameters: SignatureIndex(1),
             return_: SignatureIndex(0),
             type_parameters: vec![],
+            access_specifiers: None,
         }],
         field_handles: vec![],
         friend_decls: vec![],

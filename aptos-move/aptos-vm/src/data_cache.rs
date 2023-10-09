@@ -100,7 +100,7 @@ impl<'e, E: ExecutorView> StorageAdapter<'e, E> {
             self.accurate_byte_count = true;
         }
         self.max_binary_format_version =
-            get_max_binary_format_version(features, gas_feature_version);
+            get_max_binary_format_version(features, Some(gas_feature_version));
 
         self
     }

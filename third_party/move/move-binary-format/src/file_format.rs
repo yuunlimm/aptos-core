@@ -297,6 +297,15 @@ pub struct FunctionHandle {
     pub return_: SignatureIndex,
     /// The type formals (identified by their index into the vec) and their constraints
     pub type_parameters: Vec<AbilitySet>,
+    /// An optional list of access specifiers. If this is unspecified, the function is assumed
+    /// to access arbitrary resources. Otherwise, each specifier approximates a set of resources
+    /// which are read/written by the function. An empty list indicates the function is pure and
+    /// does not depend on any global state.
+    #[cfg_attr(
+        any(test, feature = "fuzzing"),
+        proptest(filter = "|x| x.as_ref().map(|v| v.len() <= 64).unwrap_or(true)")
+    )]
+    pub access_specifiers: Option<Vec<AccessSpecifier>>,
 }
 
 /// A field access info (owner type and offset)
@@ -847,6 +856,79 @@ impl Arbitrary for AbilitySet {
             .prop_map(|u| AbilitySet::from_u8(u).expect("proptest mask failed for AbilitySet"))
             .boxed()
     }
+}
+
+/// An `AccessSpecifier` describes an approximation of resources accessed by a function.
+/// Here are some examples on source level:
+/// ```notest
+///   // All resources declared at the address
+///   reads 0xcafe::*;
+///   // All resources in the module
+///   reads 0xcafe::my_module::*;
+///   // The given resource in the module, at arbitray address
+///   reads 0xcafe::my_module::R(*);
+///   // The given resource in the module, at address in dependency of parameter
+///   reads 0xcafe::my_module::R(object::address_of(function_parameter_name))
+///   // Any resource at the given address
+///   reads *(object::address_of(function_parameter_name))
+/// ```
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(proptest_derive::Arbitrary))]
+pub struct AccessSpecifier {
+    /// The kind of access: read, write, or both.
+    pub kind: AccessKind,
+    /// The resource specifier.
+    pub resource: ResourceSpecifier,
+    /// The address where the resource is stored. Other fields can have wildcards.
+    pub address: AddressSpecifier,
+}
+
+/// The kind of specified access.
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(proptest_derive::Arbitrary))]
+pub enum AccessKind {
+    Reads,
+    Writes,
+    Acquires, // reads or writes
+}
+
+/// The specification of a resource in an access specifier.
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(proptest_derive::Arbitrary))]
+pub enum ResourceSpecifier {
+    /// Any resource
+    Any,
+    /// A resource declared at the given address.
+    DeclaredAtAddress(AddressIdentifierIndex),
+    /// A resource declared in the given module.
+    DeclaredInModule(ModuleHandleIndex),
+    /// An explicit resource
+    Resource(SignatureIndex),
+}
+
+/// The specification of an address in an access specifier.
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(proptest_derive::Arbitrary))]
+pub enum AddressSpecifier {
+    /// Resource can be stored at any address.
+    Any,
+    /// A literal address representation.
+    Literal(AddressIdentifierIndex),
+    /// An address derived from a parameter of the current function.
+    Parameter(
+        /// The index of a parameter of the current function. If `modifier` is not given, the
+        /// parameter must have address type. Otherwise `modifier` must be a function which takes
+        /// a value (or reference) of the parameter type and delivers an address.
+        #[cfg_attr(any(test, feature = "fuzzing"), proptest(strategy = "0u8..63"))]
+        LocalIndex,
+        /// If given, a function applied to the parameter. This is a well-known function which
+        /// extracts an address from a value, e.g. `object::address_of`.
+        Option<FunctionInstantiationIndex>,
+    ),
 }
 
 /// A `SignatureToken` is a type declaration for a location.
@@ -2109,6 +2191,7 @@ pub fn basic_test_module() -> CompiledModule {
         parameters: SignatureIndex(0),
         return_: SignatureIndex(0),
         type_parameters: vec![],
+        access_specifiers: None,
     });
     m.identifiers
         .push(Identifier::new("foo".to_string()).unwrap());
