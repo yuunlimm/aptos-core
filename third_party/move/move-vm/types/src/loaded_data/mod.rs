@@ -5,4 +5,5 @@
 //!
 //! This module contains the loaded definition of code data used in runtime.
 
+pub mod runtime_access_specifiers;
 pub mod runtime_types;

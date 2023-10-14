@@ -23,7 +23,7 @@ module 0x42::m {
     fun f5() acquires 0x42::*::* {
     }
 
-    fun f6() acquires 0x42::m::R {
+    fun f6() acquires 0x42::m::* {
     }
 
     fun f7() acquires *(*) {

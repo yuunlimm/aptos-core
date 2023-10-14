@@ -894,6 +894,28 @@ pub enum AccessKind {
     Acquires, // reads or writes
 }
 
+impl AccessKind {
+    /// Returns true if this access kind subsumes the other.
+    pub fn subsumes(&self, other: &Self) -> bool {
+        use AccessKind::*;
+        match (self, other) {
+            (Acquires, _) => true,
+            (_, Acquires) => false,
+            _ => self == other,
+        }
+    }
+
+    /// Tries to join two kinds, returns None of no intersection.
+    pub fn try_join(self, other: Self) -> Option<Self> {
+        use AccessKind::*;
+        match (self, other) {
+            (Acquires, k) | (k, Acquires) => Some(k),
+            (k1, k2) if k1 == k2 => Some(k1),
+            _ => None,
+        }
+    }
+}
+
 /// The specification of a resource in an access specifier.
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
 #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
