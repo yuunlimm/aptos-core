@@ -47,7 +47,7 @@ use move_core_types::{
 use proptest::{collection::vec, prelude::*, strategy::BoxedStrategy};
 use ref_cast::RefCast;
 use serde::{Deserialize, Serialize};
-use std::ops::BitOr;
+use std::{fmt, ops::BitOr};
 use variant_count::VariantCount;
 
 /// Generic index into one of the tables in the binary format.
@@ -878,6 +878,8 @@ impl Arbitrary for AbilitySet {
 pub struct AccessSpecifier {
     /// The kind of access: read, write, or both.
     pub kind: AccessKind,
+    /// Whether the specifier is negated.
+    pub negated: bool,
     /// The resource specifier.
     pub resource: ResourceSpecifier,
     /// The address where the resource is stored. Other fields can have wildcards.
@@ -916,6 +918,17 @@ impl AccessKind {
     }
 }
 
+impl fmt::Display for AccessKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use AccessKind::*;
+        match self {
+            Reads => f.write_str("reads"),
+            Writes => f.write_str("writes"),
+            Acquires => f.write_str("acquires"),
+        }
+    }
+}
+
 /// The specification of a resource in an access specifier.
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
 #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
@@ -928,7 +941,9 @@ pub enum ResourceSpecifier {
     /// A resource declared in the given module.
     DeclaredInModule(ModuleHandleIndex),
     /// An explicit resource
-    Resource(SignatureIndex),
+    Resource(StructHandleIndex),
+    /// A resource instantiation.
+    ResourceInstantiation(StructHandleIndex, SignatureIndex),
 }
 
 /// The specification of an address in an access specifier.

@@ -998,10 +998,20 @@ fn load_access_specifier(cursor: &mut VersionedCursor) -> BinaryLoaderResult<Acc
         return Err(PartialVMError::new(StatusCode::MALFORMED)
             .with_message("invalid access kind".to_owned()));
     };
+    let b = load_u8(cursor)?;
+    let negated = if b == SerializedOption::SOME as u8 {
+        true
+    } else if b == SerializedOption::NONE as u8 {
+        false
+    } else {
+        return Err(PartialVMError::new(StatusCode::MALFORMED)
+            .with_message("invalid access kind".to_owned()));
+    };
     let resource = load_resource_specifier(cursor)?;
     let address = load_address_specifier(cursor)?;
     Ok(AccessSpecifier {
         kind,
+        negated,
         resource,
         address,
     })
@@ -1017,8 +1027,12 @@ fn load_resource_specifier(cursor: &mut VersionedCursor) -> BinaryLoaderResult<R
         let module = load_module_handle_index(cursor)?;
         ResourceSpecifier::DeclaredInModule(module)
     } else if b == SerializedResourceSpecifier::RESOURCE as u8 {
+        let handle = load_struct_handle_index(cursor)?;
+        ResourceSpecifier::Resource(handle)
+    } else if b == SerializedResourceSpecifier::RESOURCE_INSTANTIATION as u8 {
+        let handle = load_struct_handle_index(cursor)?;
         let sign = load_signature_index(cursor)?;
-        ResourceSpecifier::Resource(sign)
+        ResourceSpecifier::ResourceInstantiation(handle, sign)
     } else {
         return Err(PartialVMError::new(StatusCode::MALFORMED)
             .with_message("invalid resource specifier".to_owned()));

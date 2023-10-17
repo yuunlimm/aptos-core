@@ -2,64 +2,129 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use move_binary_format::{
-    binary_views::BinaryIndexedView, errors::PartialVMResult, file_format::SignatureToken,
+    binary_views::BinaryIndexedView,
+    errors::{PartialVMError, PartialVMResult},
+    file_format as FF,
+    file_format::TableIndex,
 };
-use move_vm_types::loaded_data::runtime_types::{StructIdentifier, Type};
+use move_core_types::vm_status::StatusCode;
+use move_vm_types::loaded_data::{
+    runtime_access_specifier::{
+        AccessSpecifier, AccessSpecifierClause, AddressSpecifier, AddressSpecifierFunction,
+        ResourceSpecifier,
+    },
+    runtime_types::{StructIdentifier, Type},
+};
 use std::sync::Arc;
 
-// `intern_type` converts a signature token into the in memory type representation used by the MoveVM.
-pub fn intern_type(
+/// Loads an access specifier from the file format into the runtime representation.
+pub fn load_access_specifier(
     module: BinaryIndexedView,
-    tok: &SignatureToken,
+    signature_table: &[Vec<Type>],
     struct_name_table: &[Arc<StructIdentifier>],
-) -> PartialVMResult<Type> {
-    let res = match tok {
-        SignatureToken::Bool => Type::Bool,
-        SignatureToken::U8 => Type::U8,
-        SignatureToken::U16 => Type::U16,
-        SignatureToken::U32 => Type::U32,
-        SignatureToken::U64 => Type::U64,
-        SignatureToken::U128 => Type::U128,
-        SignatureToken::U256 => Type::U256,
-        SignatureToken::Address => Type::Address,
-        SignatureToken::Signer => Type::Signer,
-        SignatureToken::TypeParameter(idx) => Type::TyParam(*idx),
-        SignatureToken::Vector(inner_tok) => {
-            let inner_type = intern_type(module, inner_tok, struct_name_table)?;
-            Type::Vector(Box::new(inner_type))
-        },
-        SignatureToken::Reference(inner_tok) => {
-            let inner_type = intern_type(module, inner_tok, struct_name_table)?;
-            Type::Reference(Box::new(inner_type))
-        },
-        SignatureToken::MutableReference(inner_tok) => {
-            let inner_type = intern_type(module, inner_tok, struct_name_table)?;
-            Type::MutableReference(Box::new(inner_type))
-        },
-        SignatureToken::Struct(sh_idx) => {
-            let struct_handle = module.struct_handle_at(*sh_idx);
-            Type::Struct {
-                name: struct_name_table[sh_idx.0 as usize].clone(),
-                ability: struct_handle.abilities,
+    specifier: &Option<Vec<FF::AccessSpecifier>>,
+) -> PartialVMResult<AccessSpecifier> {
+    if let Some(specs) = specifier {
+        let mut incls = vec![];
+        let mut excls = vec![];
+        for spec in specs {
+            let resource = load_resource_specifier(
+                module,
+                signature_table,
+                struct_name_table,
+                &spec.resource,
+            )?;
+            let address = load_address_specifier(module, &spec.address)?;
+            let clause = AccessSpecifierClause {
+                kind: spec.kind,
+                resource,
+                address,
+            };
+            if spec.negated {
+                excls.push(clause)
+            } else {
+                incls.push(clause)
             }
+        }
+        Ok(AccessSpecifier::Constraint(incls, excls))
+    } else {
+        Ok(AccessSpecifier::Any)
+    }
+}
+
+fn load_resource_specifier(
+    module: BinaryIndexedView,
+    signature_table: &[Vec<Type>],
+    struct_name_table: &[Arc<StructIdentifier>],
+    spec: &FF::ResourceSpecifier,
+) -> PartialVMResult<ResourceSpecifier> {
+    use FF::ResourceSpecifier::*;
+    match spec {
+        Any => Ok(ResourceSpecifier::Any),
+        DeclaredAtAddress(addr_idx) => Ok(ResourceSpecifier::DeclaredAtAddress(*access_table(
+            module.address_identifiers(),
+            addr_idx.0,
+        )?)),
+        DeclaredInModule(mod_idx) => Ok(ResourceSpecifier::DeclaredInModule(
+            module
+                .safe_module_id_for_handle(access_table(module.module_handles(), mod_idx.0)?)
+                .ok_or_else(index_out_of_range)?,
+        )),
+        Resource(str_idx) => Ok(ResourceSpecifier::Resource(
+            access_table(struct_name_table, str_idx.0)?.as_ref().clone(),
+        )),
+        ResourceInstantiation(str_idx, ty_idx) => Ok(ResourceSpecifier::ResourceInstantiation(
+            access_table(struct_name_table, str_idx.0)?.as_ref().clone(),
+            access_table(signature_table, ty_idx.0)?.clone(),
+        )),
+    }
+}
+
+fn load_address_specifier(
+    module: BinaryIndexedView,
+    spec: &FF::AddressSpecifier,
+) -> PartialVMResult<AddressSpecifier> {
+    use FF::AddressSpecifier::*;
+    match spec {
+        Any => Ok(AddressSpecifier::Any),
+        Literal(idx) => Ok(AddressSpecifier::Literal(*access_table(
+            module.address_identifiers(),
+            idx.0,
+        )?)),
+        Parameter(param, fun) => {
+            let fun = if let Some(idx) = fun {
+                let fun_inst = access_table(module.function_instantiations(), idx.0)?;
+                let fun_handle = access_table(module.function_handles(), fun_inst.handle.0)?;
+                let mod_handle = access_table(module.module_handles(), fun_handle.module.0)?;
+                let mod_id = module
+                    .safe_module_id_for_handle(mod_handle)
+                    .ok_or_else(index_out_of_range)?;
+                let mod_name = mod_id.short_str_lossless();
+                let fun_name = access_table(module.identifiers(), fun_handle.name.0)?;
+                AddressSpecifierFunction::parse(&mod_name, fun_name.as_str()).ok_or_else(|| {
+                    PartialVMError::new(StatusCode::ACCESS_CONTROL_INVARIANT_VIOLATION)
+                        .with_message(format!(
+                            "function `{}::{}` not supported for address specifier",
+                            mod_name, fun_name
+                        ))
+                })?
+            } else {
+                AddressSpecifierFunction::Identity
+            };
+            Ok(AddressSpecifier::Eval(fun, *param))
         },
-        SignatureToken::StructInstantiation(sh_idx, tys) => {
-            let type_args: Vec<_> = tys
-                .iter()
-                .map(|tok| intern_type(module, tok, struct_name_table))
-                .collect::<PartialVMResult<_>>()?;
-            let struct_handle = module.struct_handle_at(*sh_idx);
-            Type::StructInstantiation {
-                name: struct_name_table[sh_idx.0 as usize].clone(),
-                base_ability_set: struct_handle.abilities,
-                ty_args: Arc::new(type_args),
-                phantom_ty_args_mask: struct_handle
-                    .type_parameters
-                    .iter()
-                    .map(|ty| ty.is_phantom)
-                    .collect(),
-            }
-        },
-    };
-    Ok(res)
+    }
+}
+
+fn access_table<T>(table: &[T], idx: TableIndex) -> PartialVMResult<&T> {
+    if (idx as usize) < table.len() {
+        Ok(&table[idx as usize])
+    } else {
+        Err(index_out_of_range())
+    }
+}
+
+fn index_out_of_range() -> PartialVMError {
+    PartialVMError::new(StatusCode::ACCESS_CONTROL_INVARIANT_VIOLATION)
+        .with_message("table index out of range".to_owned())
 }

@@ -763,6 +763,13 @@ fn serialize_access_specifier(binary: &mut BinaryData, acc: &AccessSpecifier) ->
         AccessKind::Writes => SerializedAccessKind::WRITE,
         AccessKind::Acquires => SerializedAccessKind::ACQUIRES,
     } as u8)?;
+    binary.push(
+        if acc.negated {
+            SerializedOption::SOME as u8
+        } else {
+            SerializedOption::NONE as u8
+        },
+    )?;
     serialize_resource_specifier(binary, &acc.resource)?;
     serialize_address_specifier(binary, &acc.address)
 }
@@ -781,8 +788,13 @@ fn serialize_resource_specifier(
             binary.push(SerializedResourceSpecifier::IN_MODULE as u8)?;
             serialize_module_handle_index(binary, handle)
         },
-        ResourceSpecifier::Resource(sign) => {
+        ResourceSpecifier::Resource(handle) => {
             binary.push(SerializedResourceSpecifier::RESOURCE as u8)?;
+            serialize_struct_handle_index(binary, handle)
+        },
+        ResourceSpecifier::ResourceInstantiation(handle, sign) => {
+            binary.push(SerializedResourceSpecifier::RESOURCE_INSTANTIATION as u8)?;
+            serialize_struct_handle_index(binary, handle)?;
             serialize_signature_index(binary, sign)
         },
     }

@@ -158,6 +158,7 @@ pub enum SerializedResourceSpecifier {
     AT_ADDRESS              = 0x2,
     IN_MODULE               = 0x3,
     RESOURCE                = 0x4,
+    RESOURCE_INSTANTIATION  = 0x5,
 }
 
 #[rustfmt::skip]

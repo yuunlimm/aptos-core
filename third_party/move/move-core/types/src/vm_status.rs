@@ -729,12 +729,13 @@ pub enum StatusCode {
     // Failed to resolve type due to linking being broken after verification
     TYPE_RESOLUTION_FAILURE = 2021,
     DUPLICATE_NATIVE_FUNCTION = 2022,
+    ACCESS_CONTROL_INVARIANT_VIOLATION = 2023,
     // Reserved error code for future use
-    RESERVED_INVARIANT_VIOLATION_ERROR_1 = 2023,
-    RESERVED_INVARIANT_VIOLATION_ERROR_2 = 2024,
-    RESERVED_INVARIANT_VIOLATION_ERROR_3 = 2025,
-    RESERVED_INVARIANT_VIOLATION_ERROR_4 = 2026,
-    RESERVED_INVARIANT_VIOLATION_ERROR_5 = 2027,
+    RESERVED_INVARIANT_VIOLATION_ERROR_1 = 2024,
+    RESERVED_INVARIANT_VIOLATION_ERROR_2 = 2025,
+    RESERVED_INVARIANT_VIOLATION_ERROR_3 = 2026,
+    RESERVED_INVARIANT_VIOLATION_ERROR_4 = 2027,
+    RESERVED_INVARIANT_VIOLATION_ERROR_5 = 2028,
 
     // Errors that can arise from binary decoding (deserialization)
     // Deserializtion Errors: 3000-3999
@@ -794,11 +795,13 @@ pub enum StatusCode {
     IO_LIMIT_REACHED = 4031,
     STORAGE_LIMIT_REACHED = 4032,
     TYPE_TAG_LIMIT_EXCEEDED = 4033,
+    ACCESS_DENIED = 4034,
+    ACCESS_STACK_LIMIT_EXCEEDED = 4035,
     // Reserved error code for future use
-    RESERVED_RUNTIME_ERROR_2 = 4034,
-    RESERVED_RUNTIME_ERROR_3 = 4035,
-    RESERVED_RUNTIME_ERROR_4 = 4036,
-    RESERVED_RUNTIME_ERROR_5 = 4037,
+    RESERVED_RUNTIME_ERROR_1 = 4036,
+    RESERVED_RUNTIME_ERROR_2 = 4037,
+    RESERVED_RUNTIME_ERROR_3 = 4038,
+    RESERVED_RUNTIME_ERROR_4 = 4039,
 
     // A reserved status to represent an unknown vm status.
     // this is std::u64::MAX, but we can't pattern match on that, so put the hardcoded value in

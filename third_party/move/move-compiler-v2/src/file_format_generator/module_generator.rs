@@ -429,9 +429,21 @@ impl ModuleGenerator {
                     &ctx.env.get_module(*module_id),
                 ))
             },
-            ResourceSpecifier::Resource(struct_id) => FF::ResourceSpecifier::Resource(
-                self.signature(ctx, &access_specifier.resource.0, vec![struct_id.to_type()]),
-            ),
+            ResourceSpecifier::Resource(struct_id) => {
+                let struct_env = ctx.env.get_struct(struct_id.to_qualified_id());
+                if struct_id.inst.is_empty() {
+                    FF::ResourceSpecifier::Resource(self.struct_index(
+                        ctx,
+                        &access_specifier.loc,
+                        &struct_env,
+                    ))
+                } else {
+                    FF::ResourceSpecifier::ResourceInstantiation(
+                        self.struct_index(ctx, &access_specifier.loc, &struct_env),
+                        self.signature(ctx, &access_specifier.loc, struct_id.inst.to_vec()),
+                    )
+                }
+            },
         };
         let address =
             match &access_specifier.address.1 {
@@ -464,6 +476,7 @@ impl ModuleGenerator {
             };
         FF::AccessSpecifier {
             kind: access_specifier.kind,
+            negated: false, // TODO: support negation in the syntax
             resource,
             address,
         }
