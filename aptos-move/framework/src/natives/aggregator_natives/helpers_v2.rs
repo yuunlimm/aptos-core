@@ -12,6 +12,10 @@ use move_vm_types::{
 const VALUE_FIELD_INDEX: usize = 0;
 const LIMIT_FIELD_INDEX: usize = 1;
 
+pub(crate) fn aggregator_value_field_as_id(value: u128) -> PartialVMResult<DelayedFieldID> {
+    u128_to_u64(value).map(DelayedFieldID::new)
+}
+
 /// Given a reference to `Aggregator` Move struct, returns a tuple of its
 /// fields: (`value`, `limit`).
 pub fn get_aggregator_fields_u128(aggregator: &StructRef) -> PartialVMResult<(u128, u128)> {
