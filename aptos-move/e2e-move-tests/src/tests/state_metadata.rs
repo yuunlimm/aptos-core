@@ -3,7 +3,7 @@
 
 use crate::MoveHarness;
 use aptos_types::{
-    account_config::{fungible_store::primary_store, ObjectGroupResource},
+    account_config::{primary_apt_store, ObjectGroupResource},
     on_chain_config::{CurrentTimeMicroseconds, FeatureFlag},
     state_store::state_value::StateValueMetadata,
 };
@@ -34,7 +34,7 @@ fn test_metadata_tracking() {
     // Observe that metadata is not tracked for address2 resources
     assert_eq!(
         harness.read_resource_group_metadata(
-            &primary_store(&address2),
+            &primary_apt_store(address2),
             ObjectGroupResource::struct_tag()
         ),
         Some(None),
@@ -61,7 +61,7 @@ fn test_metadata_tracking() {
     // Observe that metadata is tracked for address3 resources
     assert_eq!(
         harness.read_resource_group_metadata(
-            &primary_store(&address3),
+            &primary_apt_store(address3),
             ObjectGroupResource::struct_tag()
         ),
         Some(Some(StateValueMetadata::new(slot_fee, &timestamp,))),
@@ -79,14 +79,14 @@ fn test_metadata_tracking() {
     );
     assert_eq!(
         harness.read_resource_group_metadata(
-            &primary_store(&address2),
+            &primary_apt_store(address2),
             ObjectGroupResource::struct_tag()
         ),
         Some(None),
     );
     assert_eq!(
         harness.read_resource_group_metadata(
-            &primary_store(&address3),
+            &primary_apt_store(address3),
             ObjectGroupResource::struct_tag()
         ),
         Some(Some(StateValueMetadata::new(slot_fee, &timestamp))),

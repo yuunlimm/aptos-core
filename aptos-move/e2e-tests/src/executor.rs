@@ -5,7 +5,7 @@
 //! Support for running the VM to execute and verify transactions.
 
 use crate::{
-    account::{Account, AccountData},
+    account::{Account, AccountData, LiteAccountData},
     data_store::{
         FakeDataStore, GENESIS_CHANGE_SET_HEAD, GENESIS_CHANGE_SET_MAINNET,
         GENESIS_CHANGE_SET_TESTNET,
@@ -372,6 +372,12 @@ impl FakeExecutor {
                     .unwrap(),
             )
         }
+    }
+
+    /// Adds an account to this executor's data store.
+    pub fn add_lite_account_data(&mut self, lite_account_data: &LiteAccountData) {
+        self.data_store.add_lite_account_data(lite_account_data);
+        // TODO: add to the fungible asset supply
     }
 
     /// Adds coin info to this executor's data store.

@@ -640,7 +640,7 @@ module aptos_framework::fungible_asset {
             supply.current = supply.current + (amount as u128);
         } else {
             assert!(false, error::not_found(ESUPPLY_NOT_FOUND));
-        }
+        };
     }
 
     /// Decrease the supply of a fungible asset by burning.

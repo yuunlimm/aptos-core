@@ -2137,7 +2137,7 @@ Increase the supply of a fungible asset by minting.
         supply.current = supply.current + (amount <b>as</b> u128);
     } <b>else</b> {
         <b>assert</b>!(<b>false</b>, <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_not_found">error::not_found</a>(<a href="fungible_asset.md#0x1_fungible_asset_ESUPPLY_NOT_FOUND">ESUPPLY_NOT_FOUND</a>));
-    }
+    };
 }
 </code></pre>
 

@@ -4,13 +4,17 @@
 
 //! Test infrastructure for modeling Aptos accounts.
 
-use crate::gas_costs;
+use crate::{account::account_config::lite_account::Authenticator, gas_costs};
 use aptos_crypto::ed25519::*;
 use aptos_keygen::KeyGen;
 use aptos_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
-    account_config::{self, AccountResource, CoinStoreResource},
+    account_config::{
+        self, fungible_store::FungibleStoreResource, lite_account::LiteAccountGroup,
+        primary_apt_store, AccountResource, CoinStoreResource, FungibleAssetEventsResource,
+        ObjectCoreResource, ObjectGroupResource,
+    },
     chain_id::ChainId,
     event::{EventHandle, EventKey},
     state_store::state_key::StateKey,
@@ -21,7 +25,7 @@ use aptos_types::{
     write_set::{WriteOp, WriteSet, WriteSetMut},
 };
 use aptos_vm_genesis::GENESIS_KEYPAIR;
-use move_core_types::move_resource::MoveStructType;
+use move_core_types::{language_storage::StructTag, move_resource::MoveStructType};
 
 // TTL is 86400s. Initial time was set to 0.
 pub const DEFAULT_EXPIRATION_TIME: u64 = 4_000_000;
@@ -123,12 +127,19 @@ impl Account {
             .expect("access path in test")
     }
 
+    /// Returns the AccessPath that describes the LiteAccount resource instance.
+    ///
+    /// Use this to retrieve or publish the Account blob.
+    pub fn make_resource_group_access_path(&self, type_: StructTag) -> AccessPath {
+        AccessPath::resource_group_access_path(self.addr, type_)
+    }
+
     /// Returns the AccessPath that describes the Account's CoinStore resource instance.
     ///
     /// Use this to retrieve or publish the Account CoinStore blob.
     pub fn make_coin_store_access_path(&self) -> AccessPath {
         AccessPath::resource_access_path(self.addr, CoinStoreResource::struct_tag())
-            .expect("access path in  test")
+            .expect("access path in test")
     }
 
     /// Changes the keys for this account to the provided ones.
@@ -411,17 +422,6 @@ impl AccountData {
         Self::with_account_and_event_counts(account, balance, sequence_number, 0, 0)
     }
 
-    /// Creates a new `AccountData` with the provided account.
-    pub fn with_keypair(
-        privkey: Ed25519PrivateKey,
-        pubkey: Ed25519PublicKey,
-        balance: u64,
-        sequence_number: u64,
-    ) -> Self {
-        let account = Account::with_keypair(privkey, pubkey);
-        Self::with_account(account, balance, sequence_number)
-    }
-
     /// Creates a new `AccountData` with custom parameters.
     pub fn with_account_and_event_counts(
         account: Account,
@@ -537,5 +537,118 @@ impl AccountData {
     /// Returns the initial received events count.
     pub fn received_events_count(&self) -> u64 {
         self.coin_store.deposit_events.count()
+    }
+}
+
+//---------------------------------------------------------------------------
+// Lite Account resource represenation
+//---------------------------------------------------------------------------
+
+/// Represents an account along with initial state about it.
+///
+/// `LiteAccountData` captures the initial state needed to create accounts for tests.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LiteAccountData {
+    account: Account,
+    lite_account: LiteAccountGroup,
+    fungible_store: FungibleStoreResource,
+}
+
+impl LiteAccountData {
+    pub fn with_keypair(
+        privkey: Ed25519PrivateKey,
+        pubkey: Ed25519PublicKey,
+        balance: u64,
+        sequence_number: u64,
+    ) -> Self {
+        let account = Account::with_keypair(privkey, pubkey);
+        Self::with_account(account, balance, sequence_number)
+    }
+
+    /// Creates a new `AccountData` with the provided account.
+    pub fn with_account(account: Account, balance: u64, sequence_number: u64) -> Self {
+        let authentication_key = AuthenticationKey::ed25519(&account.pubkey);
+        Self {
+            account,
+            lite_account: LiteAccountGroup::new(
+                sequence_number,
+                Authenticator::Native(authentication_key.to_vec().into()),
+            ),
+            fungible_store: FungibleStoreResource::new(AccountAddress::ONE, balance, false),
+        }
+    }
+
+    /// Returns the address of the account. This is a hash of the public key the account was created
+    /// with.
+    ///
+    /// The address does not change if the account's [keys are rotated][AccountData::rotate_key].
+    pub fn address(&self) -> &AccountAddress {
+        self.account.address()
+    }
+
+    /// Returns the underlying [`Account`] instance.
+    pub fn account(&self) -> &Account {
+        &self.account
+    }
+
+    /// Converts this data into an `Account` instance.
+    pub fn into_account(self) -> Account {
+        self.account
+    }
+
+    /// Returns the initial balance.
+    pub fn balance(&self) -> u64 {
+        self.fungible_store.balance()
+    }
+
+    /// Returns the initial sequence number.
+    pub fn sequence_number(&self) -> u64 {
+        self.lite_account.sequence_number()
+    }
+
+    /// Creates a writeset that contains the account data and can be patched to the storage
+    /// directly.
+    pub fn writeset(&self) -> WriteSet {
+        let primary_store_object_address = primary_apt_store(*self.address());
+        let mut object_group = ObjectGroupResource::default();
+        object_group.insert(
+            ObjectCoreResource::struct_tag(),
+            bcs::to_bytes(&ObjectCoreResource::new(
+                *self.address(),
+                false,
+                new_event_handle(0, primary_store_object_address),
+            ))
+            .unwrap(),
+        );
+        object_group.insert(
+            FungibleAssetEventsResource::struct_tag(),
+            bcs::to_bytes(&FungibleAssetEventsResource::new(
+                new_event_handle(1, primary_store_object_address),
+                new_event_handle(2, primary_store_object_address),
+                new_event_handle(3, primary_store_object_address),
+            ))
+            .unwrap(),
+        );
+        object_group.insert(
+            FungibleStoreResource::struct_tag(),
+            bcs::to_bytes(&self.fungible_store).unwrap(),
+        );
+        let write_set = vec![
+            (
+                StateKey::access_path(
+                    self.account
+                        .make_resource_group_access_path(LiteAccountGroup::struct_tag()),
+                ),
+                WriteOp::Modification(self.lite_account.to_bytes().unwrap().into()),
+            ),
+            (
+                StateKey::access_path(
+                    Account::new_genesis_account(primary_store_object_address)
+                        .make_resource_group_access_path(ObjectGroupResource::struct_tag()),
+                ),
+                WriteOp::Modification(object_group.to_bytes().unwrap().into()),
+            ),
+        ];
+        WriteSetMut::new(write_set).freeze().unwrap()
     }
 }

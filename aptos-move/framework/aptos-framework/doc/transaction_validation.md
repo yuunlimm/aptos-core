@@ -36,6 +36,7 @@
 <b>use</b> <a href="coin.md#0x1_coin">0x1::coin</a>;
 <b>use</b> <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">0x1::error</a>;
 <b>use</b> <a href="../../aptos-stdlib/../move-stdlib/doc/features.md#0x1_features">0x1::features</a>;
+<b>use</b> <a href="lite_account.md#0x1_lite_account">0x1::lite_account</a>;
 <b>use</b> <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">0x1::signer</a>;
 <b>use</b> <a href="system_addresses.md#0x1_system_addresses">0x1::system_addresses</a>;
 <b>use</b> <a href="timestamp.md#0x1_timestamp">0x1::timestamp</a>;
@@ -296,17 +297,34 @@ Only called during genesis to initialize system resources for this module.
 
     <b>if</b> (
         transaction_sender == gas_payer
-        || <a href="account.md#0x1_account_exists_at">account::exists_at</a>(transaction_sender)
-        || !<a href="../../aptos-stdlib/../move-stdlib/doc/features.md#0x1_features_sponsored_automatic_account_creation_enabled">features::sponsored_automatic_account_creation_enabled</a>()
-        || txn_sequence_number &gt; 0
+            || (<a href="account.md#0x1_account_exists_at">account::exists_at</a>(transaction_sender) || <a href="lite_account.md#0x1_lite_account_exists_at">lite_account::exists_at</a>(transaction_sender))
+            || !<a href="../../aptos-stdlib/../move-stdlib/doc/features.md#0x1_features_sponsored_automatic_account_creation_enabled">features::sponsored_automatic_account_creation_enabled</a>()
+            || txn_sequence_number &gt; 0
     ) {
-        <b>assert</b>!(<a href="account.md#0x1_account_exists_at">account::exists_at</a>(transaction_sender), <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_EACCOUNT_DOES_NOT_EXIST">PROLOGUE_EACCOUNT_DOES_NOT_EXIST</a>));
-        <b>assert</b>!(
-            txn_authentication_key == <a href="account.md#0x1_account_get_authentication_key">account::get_authentication_key</a>(transaction_sender),
-            <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_EINVALID_ACCOUNT_AUTH_KEY">PROLOGUE_EINVALID_ACCOUNT_AUTH_KEY</a>),
-        );
+        <b>let</b> account_sequence_number =
+            <b>if</b> (<a href="account.md#0x1_account_exists_at">account::exists_at</a>(transaction_sender)) {
+                <b>assert</b>!(
+                    txn_authentication_key == <a href="account.md#0x1_account_get_authentication_key">account::get_authentication_key</a>(transaction_sender),
+                    <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_EINVALID_ACCOUNT_AUTH_KEY">PROLOGUE_EINVALID_ACCOUNT_AUTH_KEY</a>),
+                );
+                <a href="account.md#0x1_account_get_sequence_number">account::get_sequence_number</a>(transaction_sender)
+            } <b>else</b> <b>if</b> (<a href="lite_account.md#0x1_lite_account_exists_at">lite_account::exists_at</a>(transaction_sender)) {
+                <b>if</b> (<a href="lite_account.md#0x1_lite_account_using_native_authenticator">lite_account::using_native_authenticator</a>(transaction_sender)) {
+                    <b>assert</b>!(
+                        txn_authentication_key == <a href="lite_account.md#0x1_lite_account_get_native_authentication_key">lite_account::get_native_authentication_key</a>(transaction_sender),
+                        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_EINVALID_ACCOUNT_AUTH_KEY">PROLOGUE_EINVALID_ACCOUNT_AUTH_KEY</a>)
+                    );
+                } <b>else</b> {
+                    // todo: <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">error</a> <a href="code.md#0x1_code">code</a>
+                    <b>abort</b> <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_EACCOUNT_DOES_NOT_EXIST">PROLOGUE_EACCOUNT_DOES_NOT_EXIST</a>)
+                };
+                <a href="lite_account.md#0x1_lite_account_get_sequence_number">lite_account::get_sequence_number</a>(transaction_sender)
+            } <b>else</b> {
+                // This is a new <a href="account.md#0x1_account">account</a> <b>with</b> default
+                // todo: <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">error</a> <a href="code.md#0x1_code">code</a>
+                <b>abort</b> <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_EACCOUNT_DOES_NOT_EXIST">PROLOGUE_EACCOUNT_DOES_NOT_EXIST</a>)
+            };
 
-        <b>let</b> account_sequence_number = <a href="account.md#0x1_account_get_sequence_number">account::get_sequence_number</a>(transaction_sender);
         <b>assert</b>!(
             txn_sequence_number &lt; (1u64 &lt;&lt; 63),
             <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_out_of_range">error::out_of_range</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_ESEQUENCE_NUMBER_TOO_BIG">PROLOGUE_ESEQUENCE_NUMBER_TOO_BIG</a>)
@@ -336,10 +354,6 @@ Only called during genesis to initialize system resources for this module.
     };
 
     <b>let</b> max_transaction_fee = txn_gas_price * txn_max_gas_units;
-    <b>assert</b>!(
-        <a href="coin.md#0x1_coin_is_account_registered">coin::is_account_registered</a>&lt;AptosCoin&gt;(gas_payer),
-        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_ECANT_PAY_GAS_DEPOSIT">PROLOGUE_ECANT_PAY_GAS_DEPOSIT</a>),
-    );
     <b>let</b> balance = <a href="coin.md#0x1_coin_balance">coin::balance</a>&lt;AptosCoin&gt;(gas_payer);
     <b>assert</b>!(balance &gt;= max_transaction_fee, <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_ECANT_PAY_GAS_DEPOSIT">PROLOGUE_ECANT_PAY_GAS_DEPOSIT</a>));
 }
@@ -374,7 +388,16 @@ Only called during genesis to initialize system resources for this module.
     <a href="chain_id.md#0x1_chain_id">chain_id</a>: u8,
 ) {
     <b>let</b> gas_payer = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(&sender);
-    <a href="transaction_validation.md#0x1_transaction_validation_prologue_common">prologue_common</a>(sender, gas_payer, txn_sequence_number, txn_public_key, txn_gas_price, txn_max_gas_units, txn_expiration_time, <a href="chain_id.md#0x1_chain_id">chain_id</a>)
+    <a href="transaction_validation.md#0x1_transaction_validation_prologue_common">prologue_common</a>(
+        sender,
+        gas_payer,
+        txn_sequence_number,
+        txn_public_key,
+        txn_gas_price,
+        txn_max_gas_units,
+        txn_expiration_time,
+        <a href="chain_id.md#0x1_chain_id">chain_id</a>
+    )
 }
 </code></pre>
 
@@ -408,7 +431,16 @@ Only called during genesis to initialize system resources for this module.
     _script_hash: <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;,
 ) {
     <b>let</b> gas_payer = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(&sender);
-    <a href="transaction_validation.md#0x1_transaction_validation_prologue_common">prologue_common</a>(sender, gas_payer, txn_sequence_number, txn_public_key, txn_gas_price, txn_max_gas_units, txn_expiration_time, <a href="chain_id.md#0x1_chain_id">chain_id</a>)
+    <a href="transaction_validation.md#0x1_transaction_validation_prologue_common">prologue_common</a>(
+        sender,
+        gas_payer,
+        txn_sequence_number,
+        txn_public_key,
+        txn_gas_price,
+        txn_max_gas_units,
+        txn_expiration_time,
+        <a href="chain_id.md#0x1_chain_id">chain_id</a>
+    )
 }
 </code></pre>
 
@@ -492,8 +524,8 @@ Only called during genesis to initialize system resources for this module.
             <b>invariant</b> i &lt;= num_secondary_signers;
             <b>invariant</b> <b>forall</b> j in 0..i:
                 <a href="account.md#0x1_account_exists_at">account::exists_at</a>(secondary_signer_addresses[j])
-                && secondary_signer_public_key_hashes[j]
-                   == <a href="account.md#0x1_account_get_authentication_key">account::get_authentication_key</a>(secondary_signer_addresses[j]);
+                    && secondary_signer_public_key_hashes[j]
+                    == <a href="account.md#0x1_account_get_authentication_key">account::get_authentication_key</a>(secondary_signer_addresses[j]);
         };
         (i &lt; num_secondary_signers)
     }) {
@@ -663,7 +695,12 @@ Called by the Adapter
 
     // Increment sequence number
     <b>let</b> addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(&<a href="account.md#0x1_account">account</a>);
-    <a href="account.md#0x1_account_increment_sequence_number">account::increment_sequence_number</a>(addr);
+    <b>if</b> (<a href="lite_account.md#0x1_lite_account_exists_at">lite_account::exists_at</a>(addr)) {
+        <a href="lite_account.md#0x1_lite_account_increment_sequence_number">lite_account::increment_sequence_number</a>(addr);
+    } <b>else</b> {
+        // <a href="account.md#0x1_account">account</a> v1
+        <a href="account.md#0x1_account_increment_sequence_number">account::increment_sequence_number</a>(addr);
+    }
 }
 </code></pre>
 

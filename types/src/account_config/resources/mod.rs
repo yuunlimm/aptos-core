@@ -8,6 +8,7 @@ pub mod coin_info;
 pub mod coin_store;
 pub mod core_account;
 pub mod fungible_store;
+pub mod lite_account;
 pub mod object;
 
 pub use chain_id::*;
@@ -15,4 +16,5 @@ pub use challenge::*;
 pub use coin_info::*;
 pub use coin_store::*;
 pub use core_account::*;
+pub use fungible_store::*;
 pub use object::*;

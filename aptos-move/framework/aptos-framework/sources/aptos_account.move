@@ -6,6 +6,7 @@ module aptos_framework::aptos_account {
     use std::error;
     use std::signer;
     use std::vector;
+    use aptos_framework::lite_account;
 
     friend aptos_framework::genesis;
     friend aptos_framework::resource_account;
@@ -39,7 +40,7 @@ module aptos_framework::aptos_account {
     ///////////////////////////////////////////////////////////////////////////
 
     public entry fun create_account(auth_key: address) {
-        account::create_account(auth_key);
+        lite_account::create_account(auth_key);
     }
 
     /// Batch version of APT transfer.
@@ -59,7 +60,7 @@ module aptos_framework::aptos_account {
     /// Convenient function to transfer APT to a recipient account that might not exist.
     /// This would create the recipient account first, which also registers it to receive APT, before transferring.
     public entry fun transfer(source: &signer, to: address, amount: u64) {
-        if (!account::exists_at(to)) {
+        if (!lite_account::exists_at(to)) {
             create_account(to)
         };
         coin::transfer<AptosCoin>(source, to, amount)
@@ -96,7 +97,7 @@ module aptos_framework::aptos_account {
     }
 
     public fun assert_account_exists(addr: address) {
-        assert!(account::exists_at(addr), error::not_found(EACCOUNT_NOT_FOUND));
+        assert!(account::exists_at(addr) || lite_account::exists_at(addr), error::not_found(EACCOUNT_NOT_FOUND));
     }
 
     #[deprecated]
