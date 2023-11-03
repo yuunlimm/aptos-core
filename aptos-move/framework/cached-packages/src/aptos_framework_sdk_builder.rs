@@ -157,7 +157,7 @@ pub enum EntryFunctionCall {
 
     /// Set whether `account` can receive direct transfers of coins that they have not explicitly registered to receive.
     AptosAccountSetAllowDirectCoinTransfers {
-        allow: bool,
+        _allow: bool,
     },
 
     /// Convenient function to transfer APT to a recipient account that might not exist.
@@ -968,8 +968,8 @@ impl EntryFunctionCall {
                 amounts,
             } => aptos_account_batch_transfer_coins(coin_type, recipients, amounts),
             AptosAccountCreateAccount { auth_key } => aptos_account_create_account(auth_key),
-            AptosAccountSetAllowDirectCoinTransfers { allow } => {
-                aptos_account_set_allow_direct_coin_transfers(allow)
+            AptosAccountSetAllowDirectCoinTransfers { _allow } => {
+                aptos_account_set_allow_direct_coin_transfers(_allow)
             },
             AptosAccountTransfer { to, amount } => aptos_account_transfer(to, amount),
             AptosAccountTransferCoins {
@@ -1741,7 +1741,7 @@ pub fn aptos_account_create_account(auth_key: AccountAddress) -> TransactionPayl
 }
 
 /// Set whether `account` can receive direct transfers of coins that they have not explicitly registered to receive.
-pub fn aptos_account_set_allow_direct_coin_transfers(allow: bool) -> TransactionPayload {
+pub fn aptos_account_set_allow_direct_coin_transfers(_allow: bool) -> TransactionPayload {
     TransactionPayload::EntryFunction(EntryFunction::new(
         ModuleId::new(
             AccountAddress::new([
@@ -1752,7 +1752,7 @@ pub fn aptos_account_set_allow_direct_coin_transfers(allow: bool) -> Transaction
         ),
         ident_str!("set_allow_direct_coin_transfers").to_owned(),
         vec![],
-        vec![bcs::to_bytes(&allow).unwrap()],
+        vec![bcs::to_bytes(&_allow).unwrap()],
     ))
 }
 
@@ -4179,7 +4179,7 @@ mod decoder {
     ) -> Option<EntryFunctionCall> {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::AptosAccountSetAllowDirectCoinTransfers {
-                allow: bcs::from_bytes(script.args().get(0)?).ok()?,
+                _allow: bcs::from_bytes(script.args().get(0)?).ok()?,
             })
         } else {
             None
