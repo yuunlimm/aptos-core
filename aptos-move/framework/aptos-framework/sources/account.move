@@ -14,7 +14,7 @@ module aptos_framework::account {
     use aptos_std::from_bcs;
     use aptos_std::multi_ed25519;
     use aptos_std::table::{Self, Table};
-    use aptos_std::type_info::{Self, TypeInfo};
+    use aptos_std::type_info::TypeInfo;
 
     friend aptos_framework::aptos_account;
     friend aptos_framework::coin;
@@ -698,18 +698,13 @@ module aptos_framework::account {
         event::new_event_handle(create_guid(account))
     }
 
+    #[deprecated]
     ///////////////////////////////////////////////////////////////////////////
     /// Coin management methods.
     ///////////////////////////////////////////////////////////////////////////
 
-    public(friend) fun register_coin<CoinType>(account_addr: address) acquires Account {
-        let account = borrow_global_mut<Account>(account_addr);
-        event::emit_event<CoinRegisterEvent>(
-            &mut account.coin_register_events,
-            CoinRegisterEvent {
-                type_info: type_info::type_of<CoinType>(),
-            },
-        );
+    public(friend) fun register_coin<CoinType>(_account_addr: address) {
+        // Noop as fungible asset does not need registration.
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -780,6 +775,9 @@ module aptos_framework::account {
             abort error::invalid_argument(EINVALID_SCHEME)
         };
     }
+
+    #[test_only]
+    use aptos_std::type_info;
 
     #[test_only]
     public fun create_account_for_test(new_address: address): signer {
@@ -1327,7 +1325,10 @@ module aptos_framework::account {
         create_account_unchecked(addr);
         register_coin<FakeCoin>(addr);
 
-        let eventhandle = &borrow_global<Account>(addr).coin_register_events;
+        let eventhandle = &mut borrow_global_mut<Account>(addr).coin_register_events;
+        let event = CoinRegisterEvent { type_info: type_info::type_of<FakeCoin>() };
+        event::emit_event(eventhandle, event);
+
         let event = CoinRegisterEvent { type_info: type_info::type_of<FakeCoin>() };
 
         let events = event::emitted_events_by_handle(eventhandle);

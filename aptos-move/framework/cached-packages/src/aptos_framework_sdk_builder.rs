@@ -157,7 +157,7 @@ pub enum EntryFunctionCall {
 
     /// Set whether `account` can receive direct transfers of coins that they have not explicitly registered to receive.
     AptosAccountSetAllowDirectCoinTransfers {
-        allow: bool,
+        _allow: bool,
     },
 
     /// Convenient function to transfer APT to a recipient account that might not exist.
@@ -237,6 +237,11 @@ pub enum EntryFunctionCall {
     CodePublishPackageTxn {
         metadata_serialized: Vec<u8>,
         code: Vec<Vec<u8>>,
+    },
+
+    /// Voluntarily migrate to fungible store for `CoinType` if not yet.
+    CoinMigrateToFungibleStore {
+        coin_type: TypeTag,
     },
 
     /// Transfers `amount` of coins `CoinType` from `from` to `to`.
@@ -349,6 +354,12 @@ pub enum EntryFunctionCall {
     DelegationPoolWithdraw {
         pool_address: AccountAddress,
         amount: u64,
+    },
+
+    FungibleAssetUpdateUris {
+        metadata_addr: AccountAddress,
+        new_icon_uri: Vec<u8>,
+        new_project_uri: Vec<u8>,
     },
 
     /// Withdraw an `amount` of coin `CoinType` from `account` and burn it.
@@ -968,8 +979,8 @@ impl EntryFunctionCall {
                 amounts,
             } => aptos_account_batch_transfer_coins(coin_type, recipients, amounts),
             AptosAccountCreateAccount { auth_key } => aptos_account_create_account(auth_key),
-            AptosAccountSetAllowDirectCoinTransfers { allow } => {
-                aptos_account_set_allow_direct_coin_transfers(allow)
+            AptosAccountSetAllowDirectCoinTransfers { _allow } => {
+                aptos_account_set_allow_direct_coin_transfers(_allow)
             },
             AptosAccountTransfer { to, amount } => aptos_account_transfer(to, amount),
             AptosAccountTransferCoins {
@@ -1022,6 +1033,7 @@ impl EntryFunctionCall {
                 metadata_serialized,
                 code,
             } => code_publish_package_txn(metadata_serialized, code),
+            CoinMigrateToFungibleStore { coin_type } => coin_migrate_to_fungible_store(coin_type),
             CoinTransfer {
                 coin_type,
                 to,
@@ -1092,6 +1104,11 @@ impl EntryFunctionCall {
                 pool_address,
                 amount,
             } => delegation_pool_withdraw(pool_address, amount),
+            FungibleAssetUpdateUris {
+                metadata_addr,
+                new_icon_uri,
+                new_project_uri,
+            } => fungible_asset_update_uris(metadata_addr, new_icon_uri, new_project_uri),
             ManagedCoinBurn { coin_type, amount } => managed_coin_burn(coin_type, amount),
             ManagedCoinInitialize {
                 coin_type,
@@ -1741,7 +1758,7 @@ pub fn aptos_account_create_account(auth_key: AccountAddress) -> TransactionPayl
 }
 
 /// Set whether `account` can receive direct transfers of coins that they have not explicitly registered to receive.
-pub fn aptos_account_set_allow_direct_coin_transfers(allow: bool) -> TransactionPayload {
+pub fn aptos_account_set_allow_direct_coin_transfers(_allow: bool) -> TransactionPayload {
     TransactionPayload::EntryFunction(EntryFunction::new(
         ModuleId::new(
             AccountAddress::new([
@@ -1752,7 +1769,7 @@ pub fn aptos_account_set_allow_direct_coin_transfers(allow: bool) -> Transaction
         ),
         ident_str!("set_allow_direct_coin_transfers").to_owned(),
         vec![],
-        vec![bcs::to_bytes(&allow).unwrap()],
+        vec![bcs::to_bytes(&_allow).unwrap()],
     ))
 }
 
@@ -1991,6 +2008,22 @@ pub fn code_publish_package_txn(
             bcs::to_bytes(&metadata_serialized).unwrap(),
             bcs::to_bytes(&code).unwrap(),
         ],
+    ))
+}
+
+/// Voluntarily migrate to fungible store for `CoinType` if not yet.
+pub fn coin_migrate_to_fungible_store(coin_type: TypeTag) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("coin").to_owned(),
+        ),
+        ident_str!("migrate_to_fungible_store").to_owned(),
+        vec![coin_type],
+        vec![],
     ))
 }
 
@@ -2320,6 +2353,29 @@ pub fn delegation_pool_withdraw(pool_address: AccountAddress, amount: u64) -> Tr
         vec![
             bcs::to_bytes(&pool_address).unwrap(),
             bcs::to_bytes(&amount).unwrap(),
+        ],
+    ))
+}
+
+pub fn fungible_asset_update_uris(
+    metadata_addr: AccountAddress,
+    new_icon_uri: Vec<u8>,
+    new_project_uri: Vec<u8>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("fungible_asset").to_owned(),
+        ),
+        ident_str!("update_uris").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&metadata_addr).unwrap(),
+            bcs::to_bytes(&new_icon_uri).unwrap(),
+            bcs::to_bytes(&new_project_uri).unwrap(),
         ],
     ))
 }
@@ -4179,7 +4235,7 @@ mod decoder {
     ) -> Option<EntryFunctionCall> {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::AptosAccountSetAllowDirectCoinTransfers {
-                allow: bcs::from_bytes(script.args().get(0)?).ok()?,
+                _allow: bcs::from_bytes(script.args().get(0)?).ok()?,
             })
         } else {
             None
@@ -4319,6 +4375,18 @@ mod decoder {
             Some(EntryFunctionCall::CodePublishPackageTxn {
                 metadata_serialized: bcs::from_bytes(script.args().get(0)?).ok()?,
                 code: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn coin_migrate_to_fungible_store(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::CoinMigrateToFungibleStore {
+                coin_type: script.ty_args().get(0)?.clone(),
             })
         } else {
             None
@@ -4516,6 +4584,18 @@ mod decoder {
             Some(EntryFunctionCall::DelegationPoolWithdraw {
                 pool_address: bcs::from_bytes(script.args().get(0)?).ok()?,
                 amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn fungible_asset_update_uris(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::FungibleAssetUpdateUris {
+                metadata_addr: bcs::from_bytes(script.args().get(0)?).ok()?,
+                new_icon_uri: bcs::from_bytes(script.args().get(1)?).ok()?,
+                new_project_uri: bcs::from_bytes(script.args().get(2)?).ok()?,
             })
         } else {
             None
@@ -5628,6 +5708,10 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
             Box::new(decoder::code_publish_package_txn),
         );
         map.insert(
+            "coin_migrate_to_fungible_store".to_string(),
+            Box::new(decoder::coin_migrate_to_fungible_store),
+        );
+        map.insert(
             "coin_transfer".to_string(),
             Box::new(decoder::coin_transfer),
         );
@@ -5690,6 +5774,10 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
         map.insert(
             "delegation_pool_withdraw".to_string(),
             Box::new(decoder::delegation_pool_withdraw),
+        );
+        map.insert(
+            "fungible_asset_update_uris".to_string(),
+            Box::new(decoder::fungible_asset_update_uris),
         );
         map.insert(
             "managed_coin_burn".to_string(),

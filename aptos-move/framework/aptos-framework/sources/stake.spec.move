@@ -606,6 +606,8 @@ spec aptos_framework::stake {
     }
 
     spec add_stake {
+        // TODO(fa_migration)
+        pragma aborts_if_is_partial;
         include ResourceRequirement;
         include AddStakeAbortsIfAndEnsures;
     }
@@ -726,12 +728,6 @@ spec aptos_framework::stake {
 
         let owner_address = signer::address_of(owner);
         aborts_if !exists<OwnerCapability>(owner_address);
-
-        include coin::WithdrawAbortsIf<AptosCoin>{ account: owner };
-        let coin_store = global<coin::CoinStore<AptosCoin>>(owner_address);
-        let balance = coin_store.coin.value;
-        let post coin_post = global<coin::CoinStore<AptosCoin>>(owner_address).coin.value;
-        ensures coin_post == balance - amount;
 
         let owner_cap = global<OwnerCapability>(owner_address);
         include AddStakeWithCapAbortsIfAndEnsures { owner_cap };
