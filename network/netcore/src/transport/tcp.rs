@@ -187,7 +187,7 @@ impl Transport for TcpTransport {
 }
 
 /// Try to lookup the dns name, then filter addrs according to the `IpFilter`.
-async fn resolve_with_filter(
+pub async fn resolve_with_filter(
     ip_filter: IpFilter,
     dns_name: &str,
     port: u16,
