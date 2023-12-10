@@ -8,8 +8,11 @@
 ///   - Changing how gas is calculated in any way
 ///
 /// Change log:
+/// - V13
+///   - Support "ephemeral" storage fee scheme, gated by FeatrueFlag::EPHEMERAL_STORAGE_FEE
 /// - V12
 ///   - Added BN254 operations.
+///   - IO gas change: 1. read bytes charged at 4KB intervals; 2. ignore free_write_bytes_quota
 /// - V11
 ///   - Ristretto255 natives (point cloning & double-scalar multiplication) and Bulletproofs natives
 ///   - Hard limit on the number of write ops per transaction

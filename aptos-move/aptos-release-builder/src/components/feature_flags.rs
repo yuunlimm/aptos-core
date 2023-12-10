@@ -95,6 +95,7 @@ pub enum FeatureFlag {
     CommissionChangeDelegationPool,
     BN254Structures,
     WebAuthnSignature,
+    EphemeralStorageFee,
 }
 
 fn generate_features_blob(writer: &CodeWriter, data: &[u64]) {
@@ -248,6 +249,7 @@ impl From<FeatureFlag> for AptosFeatureFlag {
             },
             FeatureFlag::BN254Structures => AptosFeatureFlag::BN254_STRUCTURES,
             FeatureFlag::WebAuthnSignature => AptosFeatureFlag::WEBAUTHN_SIGNATURE,
+            FeatureFlag::EphemeralStorageFee => AptosFeatureFlag::EPHEMERAL_STORAGE_FEE,
         }
     }
 }
@@ -324,6 +326,7 @@ impl From<AptosFeatureFlag> for FeatureFlag {
             },
             AptosFeatureFlag::BN254_STRUCTURES => FeatureFlag::BN254Structures,
             AptosFeatureFlag::WEBAUTHN_SIGNATURE => FeatureFlag::WebAuthnSignature,
+            AptosFeatureFlag::EPHEMERAL_STORAGE_FEE => FeatureFlag::EphemeralStorageFee,
         }
     }
 }

@@ -111,6 +111,7 @@ pub struct StorageFees {
     pub events: Vec<EventStorage>,
     pub event_discount: Fee,
     pub txn_storage: Fee,
+    pub storage_discount: Fee,
 }
 
 /// A complete log that contains all gas-related information about a transaction, including
@@ -185,6 +186,9 @@ impl StorageFees {
         }
 
         total += self.txn_storage;
+
+        total = total.checked_sub(self.event_discount).unwrap();
+        total = total.checked_sub(self.storage_discount).unwrap();
 
         if total != self.total {
             panic!(
