@@ -24,7 +24,8 @@ use aptos_sdk::{
     move_types::account_address::AccountAddress,
     transaction_builder::aptos_stdlib,
     types::on_chain_config::{
-        BlockGasLimitType, OnChainConsensusConfig, OnChainExecutionConfig, TransactionShufflerType,
+        BlockGasLimitType, DagConsensusConfigV1, OnChainConsensusConfig, OnChainExecutionConfig,
+        TransactionShufflerType,
     },
 };
 use aptos_testcases::{
@@ -598,8 +599,8 @@ fn get_land_blocking_test(
     test_cmd: &TestCommand,
 ) -> Option<ForgeConfig> {
     let test = match test_name {
-        "land_blocking" => land_blocking_test_suite(duration), // TODO: remove land_blocking, superseded by below
-        "realistic_env_max_load" => realistic_env_max_load_test(duration, test_cmd, 7, 5),
+        "land_blocking" => realistic_network_tuned_for_throughput_test(), // TODO: remove land_blocking, superseded by below
+        "realistic_env_max_load" => realistic_network_tuned_for_throughput_test(),
         "compat" => compat(),
         "framework_upgrade" => framework_upgrade(),
         _ => return None, // The test name does not match a land-blocking test
@@ -820,22 +821,22 @@ fn optimize_for_maximum_throughput(config: &mut NodeConfig) {
         .consensus
         .quorum_store
         .back_pressure
-        .dynamic_min_txn_per_s = 2000;
+        .dynamic_min_txn_per_s = 100;
     config
         .consensus
         .quorum_store
         .back_pressure
-        .dynamic_max_txn_per_s = 8000;
+        .dynamic_max_txn_per_s = 200;
 
-    config.consensus.quorum_store.sender_max_batch_txns = 1000;
+    config.consensus.quorum_store.sender_max_batch_txns = 300;
     config.consensus.quorum_store.sender_max_batch_bytes = 4 * 1024 * 1024;
-    config.consensus.quorum_store.sender_max_num_batches = 100;
-    config.consensus.quorum_store.sender_max_total_txns = 4000;
+    config.consensus.quorum_store.sender_max_num_batches = 5;
+    config.consensus.quorum_store.sender_max_total_txns = 500;
     config.consensus.quorum_store.sender_max_total_bytes = 8 * 1024 * 1024;
-    config.consensus.quorum_store.receiver_max_batch_txns = 1000;
+    config.consensus.quorum_store.receiver_max_batch_txns = 300;
     config.consensus.quorum_store.receiver_max_batch_bytes = 4 * 1024 * 1024;
-    config.consensus.quorum_store.receiver_max_num_batches = 100;
-    config.consensus.quorum_store.receiver_max_total_txns = 4000;
+    config.consensus.quorum_store.receiver_max_num_batches = 5;
+    config.consensus.quorum_store.receiver_max_total_txns = 500;
     config.consensus.quorum_store.receiver_max_total_bytes = 8 * 1024 * 1024;
 }
 
@@ -1843,8 +1844,8 @@ fn realistic_env_max_load_test(
 fn realistic_network_tuned_for_throughput_test() -> ForgeConfig {
     // THE MOST COMMONLY USED TUNE-ABLES:
     const USE_CRAZY_MACHINES: bool = false;
-    const ENABLE_VFNS: bool = true;
-    const VALIDATOR_COUNT: usize = 12;
+    const ENABLE_VFNS: bool = false;
+    const VALIDATOR_COUNT: usize = 100;
 
     let mut forge_config = ForgeConfig::default()
         .with_initial_validator_count(NonZeroUsize::new(VALIDATOR_COUNT).unwrap())
@@ -1878,6 +1879,12 @@ fn realistic_network_tuned_for_throughput_test() -> ForgeConfig {
             }
         }))
         .with_genesis_helm_config_fn(Arc::new(move |helm_values| {
+            let onchain_consensus_config =
+                OnChainConsensusConfig::DagV1(DagConsensusConfigV1 {
+                    enable_quorum_store: true,
+                    ..Default::default()
+                });
+
             let mut on_chain_execution_config = OnChainExecutionConfig::default_for_genesis();
             // Need to update if the default changes
             match &mut on_chain_execution_config {
@@ -1894,6 +1901,8 @@ fn realistic_network_tuned_for_throughput_test() -> ForgeConfig {
             }
             helm_values["chain"]["on_chain_execution_config"] =
                 serde_yaml::to_value(on_chain_execution_config).expect("must serialize");
+            helm_values["chain"]["on_chain_consensus_config"] = 
+                serde_yaml::to_value(onchain_consensus_config).expect("must serialize");
         }));
 
     if ENABLE_VFNS {
