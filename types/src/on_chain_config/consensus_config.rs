@@ -69,7 +69,7 @@ impl OnChainConsensusConfig {
         match &self {
             OnChainConsensusConfig::V1(_config) => false,
             OnChainConsensusConfig::V2(_) | OnChainConsensusConfig::V3(_) => true,
-            OnChainConsensusConfig::DagV1(_) => false,
+            OnChainConsensusConfig::DagV1(config) => config.enable_quorum_store,
         }
     }
 
@@ -314,6 +314,7 @@ pub struct DagConsensusConfigV1 {
     pub dag_ordering_causal_history_window: usize,
     pub extra_features: ConsensusExtraFeatures,
     pub anchor_election_mode: AnchorElectionMode,
+    pub enable_quorum_store: bool,
 }
 
 impl Default for DagConsensusConfigV1 {
@@ -334,6 +335,7 @@ impl Default for DagConsensusConfigV1 {
                     use_history_from_previous_epoch_max_count: 5,
                 }),
             ),
+            enable_quorum_store: false,
         }
     }
 }
