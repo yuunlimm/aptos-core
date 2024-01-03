@@ -145,12 +145,6 @@ error: Invalid expression in `const`. Operator shl (<<) result value out of rang
    │                         ^^^^^^^^^^^^
 
 error: Invalid expression in `const`. Parameter to unary expression not foldable to constant
-   ┌─ tests/folding/unfoldable_constants.move:13:24
-   │
-13 │     const SHL4B: u64 = ((1u32 << 32) as u64);
-   │                        ^^^^^^^^^^^^^^^^^^^^^
-
-error: Invalid expression in `const`. Parameter to unary expression not foldable to constant
    ┌─ tests/folding/unfoldable_constants.move:21:24
    │
 21 │     const SHR0B: u32 = ((0u8 >> 8) as u32);
