@@ -12,6 +12,8 @@ use itertools::Itertools;
 use move_binary_format::file_format::CodeOffset;
 use std::collections::{BTreeMap, BTreeSet};
 
+static REWRITER_DEBUG: bool = false;
+
 /// Rewriter for expressions, allowing to substitute locals by expressions as well as instantiate
 /// types.  Not safe for use to rewrite variables in expressions that may contain an `Assign`
 /// expression.
@@ -336,8 +338,23 @@ pub trait ExpRewriterFunctions {
                 self.rewrite_exit_scope(new_id);
                 let newer_pat = if let Some(rewritten_pat) = optional_pat {
                     pat_changed = true;
+                    if REWRITER_DEBUG {
+                        eprintln!(
+                            "Node {} Pat changed from {:#?} to  {:#?}",
+                            id.as_usize(),
+                            &new_pat,
+                            &rewritten_pat,
+                        );
+                    }
                     rewritten_pat
                 } else {
+                    if REWRITER_DEBUG {
+                        eprintln!(
+                            "Node {} Pat unchanged {:#?} unchanged",
+                            id.as_usize(),
+                            &new_pat,
+                        );
+                    }
                     new_pat
                 };
                 if let Some(new_exp) =
