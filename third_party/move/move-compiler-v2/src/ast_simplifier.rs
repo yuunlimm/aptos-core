@@ -13,7 +13,7 @@ use move_model::{
     exp_rewriter::ExpRewriterFunctions,
     model::{GlobalEnv, NodeId, Parameter, TypeParameter},
     symbol::Symbol,
-    ty::{ReferenceKind, Type},
+    ty::{ReferenceKind, Type, TypeDisplayContext},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -22,10 +22,13 @@ use std::{
     vec::Vec,
 };
 
+static SIMPLIFIER_DEBUG: bool = true;
+
 pub fn run_simplifier(env: &mut GlobalEnv, eliminate_code: bool) {
     let mut rewriter = SimplifierRewriter::new(env, eliminate_code);
     for module in env.get_modules() {
         for func in module.get_functions() {
+            let mut changed = false;
             if func.get_def().is_some() {
                 let value = func.get_mut_def().take();
                 if let Some(def) = value {
@@ -33,9 +36,19 @@ pub fn run_simplifier(env: &mut GlobalEnv, eliminate_code: bool) {
                     let type_params = &func.get_type_parameters();
                     let rewritten =
                         rewriter.rewrite_function_body(params, type_params, def.clone());
+                    if rewriter.debug {
+                        eprintln!(
+                            "After rewrite_function_body, function body is `{}`",
+                            rewritten.display(env)
+                        );
+                    }
 
+                    changed = !ExpData::ptr_eq(&rewritten, &def);
                     *func.get_mut_def() = Some(rewritten);
                 }
+            }
+            if changed && rewriter.debug {
+                eprintln!("After simplifier, function is `{}`", env.dump_fun(&func),);
             }
         }
     }
@@ -341,8 +354,16 @@ impl<'env> SimplifierRewriter<'env> {
 
     // Try resolving the value of `remapped_sym`.
     // If we can find value for it, return a `SimpleValue` describing that value.
-    // If no useful value is found, returns itself.
+    // If no useful value is found, returns `SimpleValue::Unknown`.
     fn resolve_var_value(&self, id: NodeId, remapped_sym: Symbol, count: usize) -> SimpleValue {
+        if SIMPLIFIER_DEBUG {
+            eprintln!(
+                "resolve_var_value({:#?}, {}) iteration {}",
+                id,
+                remapped_sym.display(self.env.symbol_pool()),
+                count
+            );
+        }
         if let Some(val) = self.values.get(&remapped_sym) {
             self.resolve_simple_value(id, val.clone(), count)
         } else {
@@ -359,6 +380,12 @@ impl<'env> SimplifierRewriter<'env> {
     fn resolve_simple_value(&self, id: NodeId, value: SimpleValue, count: usize) -> SimpleValue {
         // While value is a valid variable, keep trying to resolve it.
         use SimpleValue::*;
+        if SIMPLIFIER_DEBUG {
+            eprintln!(
+                "resolve_simple_value({:#?}, {:#?}) iteration {}",
+                id, value, count
+            );
+        }
         let new_count = count + 1;
         assert!(new_count < 10);
         if let LocalVar(sym) = value {
@@ -442,9 +469,24 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
                 } else {
                     *sym
                 };
+                if SIMPLIFIER_DEBUG {
+                    eprintln!(
+                        "adding symbol {} remapping to {} at node {}",
+                        sym.display(self.env.symbol_pool()),
+                        new_sym.display(self.env.symbol_pool()),
+                        id.as_usize()
+                    );
+                }
                 self.remapped_symbol.insert(*sym, new_sym);
                 new_sym
             };
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "removing values[{}] at node {}",
+                    mapped_sym.display(self.env.symbol_pool()),
+                    id.as_usize()
+                );
+            }
             self.values.insert(mapped_sym, SimpleValue::Unknown);
         }
     }
@@ -595,11 +637,41 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
                 .remapped_symbol
                 .get(&var)
                 .expect("Was just set in rewrite_enter_scope");
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "Entering block {:#?}, adding var {} -> {} -> {:#?}",
+                    id.as_usize(),
+                    var.display(self.env.symbol_pool()),
+                    mapped_var.display(self.env.symbol_pool()),
+                    value
+                );
+            }
             // Note that binding was already rewritten (but outside this scope).
             self.values.insert(*mapped_var, value);
         }
         // Rename local variables in the pattern.
-        pat.replace_vars(self.remapped_symbol.borrow_map())
+        let opt_new_pat = pat.replace_vars(self.remapped_symbol.borrow_map());
+        if let Some(new_pat) = &opt_new_pat {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "Entering block {}, Pat was {}, renamed to {}, remapped_symbol map is {:#?}",
+                    id.as_usize(),
+                    pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
+                    new_pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
+                    self.remapped_symbol.borrow_map(),
+                );
+            }
+        } else {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "Entering block {}, Pat was {}, renamed to None, remapped_symbol map is {:#?}",
+                    id.as_usize(),
+                    pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
+                    self.remapped_symbol.borrow_map(),
+                );
+            }
+        }
+        opt_new_pat
     }
 
     // Note that `rewrite_block` is called *after* `rewrite_exit_scope`.
@@ -610,6 +682,36 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         opt_binding: &Option<Exp>,
         body: &Exp,
     ) -> Option<Exp> {
+        if let Some(exp) = opt_binding {
+            let pat_id = pat.node_id();
+            let exp_id = exp.node_id();
+            let pat_type = self.env.get_node_type(pat_id);
+            let exp_type = self.env.get_node_type(exp_id);
+            let type_display_context = TypeDisplayContext::new(self.env);
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "Starting rewrite_block(id={}, pat={}, opt_binding={}, body={}, pat_type={}, exp_type={}, {})",
+                    id.as_usize(),
+                    pat.to_string(self.env, &type_display_context),
+                    exp.display_verbose(self.env),
+                    body.display_verbose(self.env),
+                    pat_type.display(&type_display_context),
+                    exp_type.display(&type_display_context),
+                    if pat_type == exp_type { "MATCHES" } else { "NO MATCH" },
+                );
+            }
+        } else {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "Starting rewrite_block(id={}, pat={}, opt_binding={}, body={})",
+                    id.as_usize(),
+                    pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
+                    "None",
+                    body.display_verbose(self.env)
+                );
+            }
+        }
+
         // Simplify binding:
         //   A few ideas for simplification which are implemented below:
         //     (1) if no binding, then simplify to just the body.
@@ -619,6 +721,12 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         let pat_vars = pat.vars();
         // (1) if no binding, then simplify to just the body
         if opt_binding.is_none() && pat_vars.is_empty() {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "No binding, dropping all but body for rewrite_block(id={})",
+                    id.as_usize()
+                );
+            }
             return Some(body.clone());
         }
         let bound_vars = pat.vars();
@@ -667,6 +775,12 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
                 true
             };
         if can_eliminate_bindings {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "No used vars, dropping all but body for rewrite_block(id={})",
+                    id.as_usize()
+                );
+            }
             return Some(body.clone());
         }
 
@@ -688,6 +802,13 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
 
         if let Some(pat) = new_pat {
             let exp = ExpData::Block(id, pat, opt_binding.clone(), body.clone()).into_exp();
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "Dropping some vars  for rewrite_block(id={}), result = {}",
+                    id.as_usize(),
+                    exp.display_verbose(self.env),
+                );
+            }
             Some(exp)
         } else {
             None
@@ -695,6 +816,24 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
     }
 
     fn rewrite_exp(&mut self, exp: Exp) -> Exp {
-        self.rewrite_exp_descent(exp)
+        let old_id = exp.as_ref().node_id().as_usize();
+        if SIMPLIFIER_DEBUG {
+            eprintln!(
+                "Before rewrite, expr {} is `{}`",
+                old_id,
+                exp.display_verbose(self.env)
+            );
+        }
+        let r = self.rewrite_exp_descent(exp);
+        let new_id = r.as_ref().node_id().as_usize();
+        if SIMPLIFIER_DEBUG {
+            eprintln!(
+                "After rewrite, expr {} is now {}: `{}`",
+                old_id,
+                new_id,
+                r.display_verbose(self.env)
+            );
+        }
+        r
     }
 }
