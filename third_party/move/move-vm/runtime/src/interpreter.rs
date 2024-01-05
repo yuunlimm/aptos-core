@@ -35,7 +35,7 @@ use move_vm_types::{
 };
 use std::{
     cmp::min,
-    collections::{BTreeMap, VecDeque},
+    collections::{HashMap, VecDeque},
     fmt::Write,
     sync::Arc,
 };
@@ -1132,10 +1132,10 @@ struct Frame {
 
 #[derive(Default)]
 struct FrameCache {
-    struct_field_instantiation: BTreeMap<StructDefInstantiationIndex, Vec<Type>>,
-    struct_def_instantiation: BTreeMap<StructDefInstantiationIndex, Type>,
-    field_instantiation: BTreeMap<FieldInstantiationIndex, Type>,
-    single_sig_token: BTreeMap<SignatureIndex, Type>,
+    struct_field_instantiation: HashMap<StructDefInstantiationIndex, Vec<Type>>,
+    struct_def_instantiation: HashMap<StructDefInstantiationIndex, Type>,
+    field_instantiation: HashMap<FieldInstantiationIndex, Type>,
+    single_sig_token: HashMap<SignatureIndex, Type>,
 }
 
 /// An `ExitCode` from `execute_code_unit`.
@@ -1159,8 +1159,8 @@ fn check_ability(has_ability: bool) -> PartialVMResult<()> {
 }
 
 impl FrameCache {
-    fn get_or<K: Copy + Ord, V: Clone, F>(
-        map: &mut BTreeMap<K, V>,
+    fn get_or<K: Copy + std::hash::Hash + Eq, V: Clone, F>(
+        map: &mut HashMap<K, V>,
         idx: K,
         ty_func: F,
     ) -> PartialVMResult<V>
@@ -1207,7 +1207,7 @@ impl FrameCache {
     where
         F: FnOnce(StructDefInstantiationIndex) -> PartialVMResult<Vec<Type>>,
     {
-        if let std::collections::btree_map::Entry::Vacant(e) =
+        if let std::collections::hash_map::Entry::Vacant(e) =
             self.struct_field_instantiation.entry(idx)
         {
             let tys = ty_func(idx)?;
@@ -2307,7 +2307,9 @@ impl Frame {
                     | Bytecode::ImmBorrowGlobalGeneric(si_idx) => {
                         let is_mut = matches!(instruction, Bytecode::MutBorrowGlobalGeneric(_));
                         let addr = interpreter.operand_stack.pop_as::<AccountAddress>()?;
-                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| resolver.get_struct_type_generic(idx, &self.ty_args))?;
+                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| {
+                            resolver.get_struct_type_generic(idx, &self.ty_args)
+                        })?;
                         interpreter.borrow_global(
                             is_mut,
                             true,
@@ -2334,7 +2336,9 @@ impl Frame {
                     },
                     Bytecode::ExistsGeneric(si_idx) => {
                         let addr = interpreter.operand_stack.pop_as::<AccountAddress>()?;
-                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| resolver.get_struct_type_generic(idx, &self.ty_args))?;
+                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| {
+                            resolver.get_struct_type_generic(idx, &self.ty_args)
+                        })?;
                         interpreter.exists(
                             true,
                             resolver.loader(),
@@ -2360,7 +2364,9 @@ impl Frame {
                     },
                     Bytecode::MoveFromGeneric(si_idx) => {
                         let addr = interpreter.operand_stack.pop_as::<AccountAddress>()?;
-                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| resolver.get_struct_type_generic(idx, &self.ty_args))?;
+                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| {
+                            resolver.get_struct_type_generic(idx, &self.ty_args)
+                        })?;
                         interpreter.move_from(
                             true,
                             resolver.loader(),
@@ -2400,7 +2406,9 @@ impl Frame {
                             .value_as::<Reference>()?
                             .read_ref()?
                             .value_as::<AccountAddress>()?;
-                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| resolver.get_struct_type_generic(idx, &self.ty_args))?;
+                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| {
+                            resolver.get_struct_type_generic(idx, &self.ty_args)
+                        })?;
                         interpreter.move_to(
                             true,
                             resolver.loader(),
