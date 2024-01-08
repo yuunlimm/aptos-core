@@ -1163,25 +1163,22 @@ impl FrameCache {
         map: &mut HashMap<K, V>,
         idx: K,
         ty_func: F,
-    ) -> PartialVMResult<V>
+    ) -> PartialVMResult<&V>
     where
         F: FnOnce(K) -> PartialVMResult<V>,
     {
-        if let Some(result) = map.get(&idx) {
-            return Ok(result.clone());
+        if let std::collections::hash_map::Entry::Vacant(e) = map.entry(idx) {
+            let tys = ty_func(idx)?;
+            e.insert(tys);
         }
-        let ty = ty_func(idx);
-        if let Ok(ty) = &ty {
-            map.insert(idx, ty.clone());
-        }
-        ty
+        Ok(map.get(&idx).unwrap())
     }
 
     fn get_field_type<F>(
         &mut self,
         idx: FieldInstantiationIndex,
         ty_func: F,
-    ) -> PartialVMResult<Type>
+    ) -> PartialVMResult<&Type>
     where
         F: FnOnce(FieldInstantiationIndex) -> PartialVMResult<Type>,
     {
@@ -1192,7 +1189,7 @@ impl FrameCache {
         &mut self,
         idx: StructDefInstantiationIndex,
         ty_func: F,
-    ) -> PartialVMResult<Type>
+    ) -> PartialVMResult<&Type>
     where
         F: FnOnce(StructDefInstantiationIndex) -> PartialVMResult<Type>,
     {
@@ -1216,7 +1213,7 @@ impl FrameCache {
         Ok(self.struct_field_instantiation.get(&idx).unwrap())
     }
 
-    fn get_signature_index<F>(&mut self, idx: SignatureIndex, ty_func: F) -> PartialVMResult<Type>
+    fn get_signature_index<F>(&mut self, idx: SignatureIndex, ty_func: F) -> PartialVMResult<&Type>
     where
         F: FnOnce(SignatureIndex) -> PartialVMResult<Type>,
     {
@@ -1449,9 +1446,11 @@ impl Frame {
                 )))?;
             },
             Bytecode::MutBorrowFieldGeneric(idx) => {
-                let expected_ty = frame_cache.get_field_type(*idx, |idx| {
-                    resolver.field_instantiation_to_struct(idx, ty_args)
-                })?;
+                let expected_ty = frame_cache
+                    .get_field_type(*idx, |idx| {
+                        resolver.field_instantiation_to_struct(idx, ty_args)
+                    })?
+                    .clone();
                 let top_ty = interpreter.operand_stack.pop_ty()?;
                 top_ty.check_eq(&Type::MutableReference(Box::new(expected_ty)))?;
                 interpreter
@@ -1499,7 +1498,8 @@ impl Frame {
             Bytecode::PackGeneric(idx) => {
                 let field_count = resolver.field_instantiation_count(*idx);
                 let output_ty = frame_cache
-                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?;
+                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?
+                    .clone();
                 let args_ty = frame_cache.get_struct_fields(*idx, |idx| {
                     resolver.instantiate_generic_struct_fields(idx, ty_args)
                 })?;
@@ -1546,7 +1546,7 @@ impl Frame {
             Bytecode::UnpackGeneric(idx) => {
                 let struct_ty = interpreter.operand_stack.pop_ty()?;
 
-                struct_ty.check_eq(&frame_cache.get_struct_type(*idx, |idx| {
+                struct_ty.check_eq(frame_cache.get_struct_type(*idx, |idx| {
                     resolver.get_struct_type_generic(idx, ty_args)
                 })?)?;
 
@@ -1689,7 +1689,8 @@ impl Frame {
                     .pop_ty()?
                     .check_eq(&Type::Address)?;
                 let ty = frame_cache
-                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?;
+                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?
+                    .clone();
                 check_ability(ty.abilities()?.has_key())?;
                 interpreter
                     .operand_stack
@@ -1701,7 +1702,8 @@ impl Frame {
                     .pop_ty()?
                     .check_eq(&Type::Address)?;
                 let ty = frame_cache
-                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?;
+                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?
+                    .clone();
                 check_ability(ty.abilities()?.has_key())?;
                 interpreter
                     .operand_stack
@@ -1729,7 +1731,7 @@ impl Frame {
                     .operand_stack
                     .pop_ty()?
                     .check_eq(&Type::Reference(Box::new(Type::Signer)))?;
-                ty.check_eq(&frame_cache.get_struct_type(*idx, |idx| {
+                ty.check_eq(frame_cache.get_struct_type(*idx, |idx| {
                     resolver.get_struct_type_generic(idx, ty_args)
                 })?)?;
                 check_ability(ty.abilities()?.has_key())?;
@@ -1749,7 +1751,8 @@ impl Frame {
                     .pop_ty()?
                     .check_eq(&Type::Address)?;
                 let ty = frame_cache
-                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?;
+                    .get_struct_type(*idx, |idx| resolver.get_struct_type_generic(idx, ty_args))?
+                    .clone();
                 check_ability(ty.abilities()?.has_key())?;
                 interpreter.operand_stack.push_ty(ty)?;
             },
@@ -1772,9 +1775,9 @@ impl Frame {
                 interpreter.operand_stack.push_ty(Type::Bool)?;
             },
             Bytecode::VecPack(si, num) => {
-                let ty = frame_cache.get_signature_index(*si, |idx| {
-                    resolver.instantiate_single_type(idx, ty_args)
-                })?;
+                let ty = frame_cache
+                    .get_signature_index(*si, |idx| resolver.instantiate_single_type(idx, ty_args))?
+                    .clone();
                 let elem_tys = interpreter.operand_stack.popn_tys(*num as u16)?;
                 for elem_ty in elem_tys.iter() {
                     elem_ty.check_eq(&ty)?;
@@ -1784,9 +1787,9 @@ impl Frame {
                     .push_ty(Type::Vector(triomphe::Arc::new(ty)))?;
             },
             Bytecode::VecLen(si) => {
-                let ty = frame_cache.get_signature_index(*si, |idx| {
-                    resolver.instantiate_single_type(idx, ty_args)
-                })?;
+                let ty = frame_cache
+                    .get_signature_index(*si, |idx| resolver.instantiate_single_type(idx, ty_args))?
+                    .clone();
                 interpreter
                     .operand_stack
                     .pop_ty()?
@@ -1794,9 +1797,9 @@ impl Frame {
                 interpreter.operand_stack.push_ty(Type::U64)?;
             },
             Bytecode::VecImmBorrow(si) => {
-                let ty = frame_cache.get_signature_index(*si, |idx| {
-                    resolver.instantiate_single_type(idx, ty_args)
-                })?;
+                let ty = frame_cache
+                    .get_signature_index(*si, |idx| resolver.instantiate_single_type(idx, ty_args))?
+                    .clone();
                 interpreter.operand_stack.pop_ty()?.check_eq(&Type::U64)?;
                 let inner_ty = interpreter
                     .operand_stack
@@ -1814,7 +1817,7 @@ impl Frame {
                 let inner_ty = interpreter
                     .operand_stack
                     .pop_ty()?
-                    .check_vec_ref(&ty, true)?;
+                    .check_vec_ref(ty, true)?;
                 interpreter
                     .operand_stack
                     .push_ty(Type::MutableReference(Box::new(inner_ty)))?;
@@ -1827,7 +1830,7 @@ impl Frame {
                 interpreter
                     .operand_stack
                     .pop_ty()?
-                    .check_vec_ref(&ty, true)?;
+                    .check_vec_ref(ty, true)?;
             },
             Bytecode::VecPopBack(si) => {
                 let ty = frame_cache.get_signature_index(*si, |idx| {
@@ -1836,7 +1839,7 @@ impl Frame {
                 let inner_ty = interpreter
                     .operand_stack
                     .pop_ty()?
-                    .check_vec_ref(&ty, true)?;
+                    .check_vec_ref(ty, true)?;
                 interpreter.operand_stack.push_ty(inner_ty)?;
             },
             Bytecode::VecUnpack(si, num) => {
@@ -1846,7 +1849,7 @@ impl Frame {
                 let vec_ty = interpreter.operand_stack.pop_ty()?;
                 match vec_ty {
                     Type::Vector(v) => {
-                        v.check_eq(&ty)?;
+                        v.check_eq(ty)?;
                         for _ in 0..*num {
                             interpreter.operand_stack.push_ty(v.as_ref().clone())?;
                         }
@@ -1868,7 +1871,7 @@ impl Frame {
                 interpreter
                     .operand_stack
                     .pop_ty()?
-                    .check_vec_ref(&ty, true)?;
+                    .check_vec_ref(ty, true)?;
             },
         }
         Ok(())
