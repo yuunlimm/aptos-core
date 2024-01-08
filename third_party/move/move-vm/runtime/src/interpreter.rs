@@ -2104,8 +2104,10 @@ impl Frame {
                     },
                     Bytecode::PackGeneric(si_idx) => {
                         let field_count = resolver.field_instantiation_count(*si_idx);
-                        let ty = resolver.get_struct_type_generic(*si_idx, self.ty_args())?;
-                        check_depth_of_type(resolver, &ty)?;
+                        let ty = self.ty_cache.get_struct_type(*si_idx, |idx| {
+                            resolver.get_struct_type_generic(idx, &self.ty_args)
+                        })?;
+                        check_depth_of_type(resolver, ty)?;
                         gas_meter.charge_pack(
                             true,
                             interpreter.operand_stack.last_n(field_count as usize)?,
