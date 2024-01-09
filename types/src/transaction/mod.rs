@@ -44,8 +44,8 @@ use std::{
 
 pub mod analyzed_transaction;
 pub mod authenticator;
-mod block_output;
 pub mod block_epilogue;
+mod block_output;
 mod change_set;
 mod module;
 mod multisig;
@@ -53,9 +53,9 @@ mod script;
 pub mod signature_verified_transaction;
 pub mod webauthn;
 
+use self::block_epilogue::BlockEpiloguePayload;
 #[cfg(any(test, feature = "fuzzing"))]
 use crate::state_store::create_empty_sharded_state_updates;
-use self::block_epilogue::{BlockEndInfo, BlockEpiloguePayload};
 use crate::{
     contract_event::TransactionEvent, executable::ModulePath, fee_statement::FeeStatement,
     proof::accumulator::InMemoryEventAccumulator, validator_txn::ValidatorTransaction,
@@ -1898,13 +1898,6 @@ impl Transaction {
         }
     }
 
-    pub fn try_as_block_epilogue(&self) -> Option<&BlockEpiloguePayload> {
-        match self {
-            Transaction::BlockEpilogue(v1) => Some(v1),
-            _ => None,
-        }
-    }
-
     pub fn try_as_validator_txn(&self) -> Option<&ValidatorTransaction> {
         match self {
             Transaction::ValidatorTransaction(t) => Some(t),
@@ -1944,6 +1937,16 @@ impl Transaction {
     #[cfg(any(test, feature = "fuzzing"))]
     pub fn dummy() -> Self {
         Transaction::StateCheckpoint(HashValue::zero())
+    }
+
+    pub fn is_non_reconfig_block_ending(&self) -> bool {
+        match self {
+            Transaction::BlockMetadata(_) | Transaction::BlockEpilogue(_) => true,
+            Transaction::UserTransaction(_)
+            | Transaction::GenesisTransaction(_)
+            | Transaction::StateCheckpoint(_)
+            | Transaction::ValidatorTransaction(_) => false,
+        }
     }
 }
 
