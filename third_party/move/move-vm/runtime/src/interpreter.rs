@@ -1159,6 +1159,7 @@ fn check_ability(has_ability: bool) -> PartialVMResult<()> {
 }
 
 impl FrameCache {
+    #[inline(always)]
     fn get_or<K: Copy + std::hash::Hash + Eq, V: Clone, F>(
         map: &mut HashMap<K, V>,
         idx: K,
@@ -1174,6 +1175,7 @@ impl FrameCache {
         Ok(map.get(&idx).unwrap())
     }
 
+    #[inline(always)]
     fn get_field_type<F>(
         &mut self,
         idx: FieldInstantiationIndex,
@@ -1185,6 +1187,7 @@ impl FrameCache {
         Self::get_or(&mut self.field_instantiation, idx, ty_func)
     }
 
+    #[inline(always)]
     fn get_struct_type<F>(
         &mut self,
         idx: StructDefInstantiationIndex,
@@ -1196,6 +1199,7 @@ impl FrameCache {
         Self::get_or(&mut self.struct_def_instantiation, idx, ty_func)
     }
 
+    #[inline(always)]
     fn get_struct_fields<F>(
         &mut self,
         idx: StructDefInstantiationIndex,
@@ -1213,6 +1217,7 @@ impl FrameCache {
         Ok(self.struct_field_instantiation.get(&idx).unwrap())
     }
 
+    #[inline(always)]
     fn get_signature_index<F>(&mut self, idx: SignatureIndex, ty_func: F) -> PartialVMResult<&Type>
     where
         F: FnOnce(SignatureIndex) -> PartialVMResult<Type>,
