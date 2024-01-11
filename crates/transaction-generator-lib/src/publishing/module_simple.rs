@@ -670,6 +670,7 @@ impl EntryPoints {
                 Some(EntryPoints::InitializeVectorPicture { length: *length })
             },
             EntryPoints::SmartTablePicture { .. } => Some(EntryPoints::InitializeSmartTablePicture),
+            EntryPoints::EconiaRegisterMarketUser => Some(EntryPoints::EconiaRegisterMarket),
             _ => None,
         }
     }

@@ -163,6 +163,21 @@ module econia::assets {
         coin::destroy_mint_cap(mint_cap);
     }
 
+    /// Wrapper for `init_module()`
+    /// Similarly initializes the Aptos coin, destroying capabilities.
+    public fun init_coin_types_setup(publisher: &signer) {
+        // Initialize Econia test coin types.
+        init_module(publisher);
+        // // Initialize Aptos coin type, storing capabilities.
+        // let (burn_cap, mint_cap) = aptos_coin::initialize_for_test(
+        //     &account::create_signer_with_capability(
+        //         &account::create_test_signer_cap(@aptos_framework)));
+        // // Destroy Aptos coin burn capability.
+        // coin::destroy_burn_cap(burn_cap);
+        // // Destroy Aptos coin mint capability.
+        // coin::destroy_mint_cap(mint_cap);
+    }
+
    #[test_only]
     /// Wrapper for `mint()`, not requiring signature.
     public fun mint_test<CoinType>(

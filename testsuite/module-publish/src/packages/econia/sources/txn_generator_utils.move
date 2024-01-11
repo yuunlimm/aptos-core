@@ -3,7 +3,7 @@ module econia::txn_generator_utils {
     use econia::incentives;
     use econia::assets::{Self, BC, QC, UC};
     use econia::user;
-    use aptos_framework::coin;
+    use aptos_framework::coin::{Coin, Self};
     use aptos_framework::signer;
     // use aptos_framework::account;
 
@@ -29,31 +29,32 @@ module econia::txn_generator_utils {
     const CANCEL_MAKER: u8 = 2;
 
 
-    public fun register_market(publisher: &signer) {
+    public entry fun register_market(publisher: &signer) {
+        market::init_setup(publisher);
         // Get market registration fee.
         let fee = incentives::get_market_registration_fee();
-        // Register publisher coin store.
-        coin::register<UC>(publisher);
+        // // Register publisher coin store.
+        // coin::register<APT>(publisher);
         // Register pure coin market.
         market::register_market_base_coin<BC, QC, UC>(
             LOT_SIZE_COIN, TICK_SIZE_COIN, MIN_SIZE_COIN,
             assets::mint(publisher, fee));
     }
 
-    public fun register_market_accounts(user: &signer) {
+    public entry fun register_market_accounts(user: &signer) {
         user::register_market_account<BC, QC>(user, MARKET_ID_COIN, NO_CUSTODIAN);
     }
 
-    public fun deposit_coins(user: &signer) {
+    public entry fun deposit_coins(user: &signer) {
         user::deposit_coins<QC>(signer::address_of(user), MARKET_ID_COIN, NO_CUSTODIAN, assets::mint<QC>(user, 1000));
         user::deposit_coins<BC>(signer::address_of(user), MARKET_ID_COIN, NO_CUSTODIAN, assets::mint<BC>(user, 1000));
     }
     
-    public fun place_bid_limit_order(user: &signer, price: u64) {
+    public entry fun place_bid_limit_order(user: &signer, price: u64) {
         market::place_limit_order_user<BC, QC>(user, MARKET_ID_COIN, @econia, BID, 3, price, 2, CANCEL_MAKER);
     }
 
-    public fun place_ask_limit_order(user: &signer, price: u64) {
+    public entry fun place_ask_limit_order(user: &signer, price: u64) {
         market::place_limit_order_user<BC, QC>(user, MARKET_ID_COIN, @econia, ASK, 3, price, 2, CANCEL_MAKER);
     }
 }

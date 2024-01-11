@@ -4905,6 +4905,11 @@ module econia::market {
         init_module(&econia); // Init module.
     }
 
+    public fun init_setup(publisher: &signer) {
+        registry::init_setup(publisher); // Init registry.
+        init_module(publisher)
+    }
+
     #[test_only]
     /// Initialize test markets, users, and an integrator, returning
     /// user signers.
