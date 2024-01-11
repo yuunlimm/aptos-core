@@ -81,9 +81,10 @@ use rayon::prelude::*;
 use std::{
     fmt::{Debug, Formatter},
     iter::Iterator,
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
+
 };
 
 #[cfg(test)]
