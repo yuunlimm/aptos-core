@@ -1,7 +1,13 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{tests::common::test_dir_path, MoveHarness};
+use crate::{
+    tests::{
+        common::test_dir_path,
+        token_objects::{create_mint_hero_payload, publish_object_token_example},
+    },
+    MoveHarness,
+};
 use aptos_cached_packages::{aptos_stdlib, aptos_token_sdk_builder};
 use aptos_crypto::{bls12381, PrivateKey, Uniform};
 use aptos_gas_profiling::TransactionGasLog;
@@ -69,6 +75,13 @@ fn test_gas() {
 
     run(
         &mut harness,
+        "2ndTransfer",
+        account_1,
+        aptos_stdlib::aptos_coin_transfer(account_2_address, 1000),
+    );
+
+    run(
+        &mut harness,
         "CreateAccount",
         account_1,
         aptos_stdlib::aptos_account_create_account(
@@ -84,6 +97,15 @@ fn test_gas() {
             1000,
         ),
     );
+
+    publish_object_token_example(&mut harness, account_1_address, account_1);
+    run(
+        &mut harness,
+        "MintTokenV2",
+        account_1,
+        create_mint_hero_payload(&account_1_address),
+    );
+
     run(
         &mut harness,
         "CreateStakePool",
@@ -180,7 +202,7 @@ fn test_gas() {
     );
     run(
         &mut harness,
-        "MintToken",
+        "MintTokenV1",
         account_1,
         aptos_token_sdk_builder::token_mint_script(
             account_1_address,
@@ -191,7 +213,7 @@ fn test_gas() {
     );
     run(
         &mut harness,
-        "MutateToken",
+        "MutateTokenV1",
         account_1,
         aptos_token_sdk_builder::token_mutate_token_properties(
             account_1_address,
@@ -207,7 +229,7 @@ fn test_gas() {
     );
     run(
         &mut harness,
-        "MutateToken2ndTime",
+        "MutateTokenV12ndTime",
         account_1,
         aptos_token_sdk_builder::token_mutate_token_properties(
             account_1_address,

@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{assert_success, tests::common, MoveHarness};
+use aptos_language_e2e_tests::account::Account;
 use aptos_types::{
     account_address::{self, AccountAddress},
     event::EventHandle,
+    move_utils::MemberId,
+    transaction::{EntryFunction, TransactionPayload},
 };
 use move_core_types::{identifier::Identifier, language_storage::StructTag};
 use serde::Deserialize;
@@ -34,30 +37,9 @@ fn test_basic_token() {
     let addr = AccountAddress::from_hex_literal("0xcafe").unwrap();
     let account = h.new_account_at(addr);
 
-    let mut build_options = aptos_framework::BuildOptions::default();
-    build_options
-        .named_addresses
-        .insert("hero".to_string(), addr);
+    publish_object_token_example(&mut h, addr, &account);
 
-    let result = h.publish_package_with_options(
-        &account,
-        &common::test_dir_path("../../../move-examples/token_objects/hero"),
-        build_options,
-    );
-    assert_success!(result);
-
-    let result = h.run_entry_function(
-        &account,
-        str::parse(&format!("0x{}::hero::mint_hero", addr.to_hex())).unwrap(),
-        vec![],
-        vec![
-            bcs::to_bytes("The best hero ever!").unwrap(),
-            bcs::to_bytes("Male").unwrap(),
-            bcs::to_bytes("Wukong").unwrap(),
-            bcs::to_bytes("Monkey God").unwrap(),
-            bcs::to_bytes("404").unwrap(),
-        ],
-    );
+    let result = h.run_transaction_payload(&account, create_mint_hero_payload(&addr));
     assert_success!(result);
 
     let token_addr = account_address::create_token_address(addr, "Hero Quest!", "Wukong");
@@ -122,4 +104,34 @@ fn test_basic_token() {
     assert_eq!(token_1.description, "Oh no!");
     token_1.description = "The best hero ever!".to_string();
     assert_eq!(token_0.mutation_events.key(), token_1.mutation_events.key());
+}
+
+pub fn publish_object_token_example(h: &mut MoveHarness, addr: AccountAddress, account: &Account) {
+    let mut build_options = aptos_framework::BuildOptions::default();
+    build_options
+        .named_addresses
+        .insert("hero".to_string(), addr);
+
+    let result = h.publish_package_with_options(
+        account,
+        &common::test_dir_path("../../../move-examples/token_objects/hero"),
+        build_options,
+    );
+    assert_success!(result);
+}
+
+pub fn create_mint_hero_payload(addr: &AccountAddress) -> TransactionPayload {
+    let fun = str::parse(&format!("0x{}::hero::mint_hero", addr.to_hex())).unwrap();
+    let MemberId {
+        module_id,
+        member_id: function_id,
+    } = fun;
+
+    TransactionPayload::EntryFunction(EntryFunction::new(module_id, function_id, vec![], vec![
+        bcs::to_bytes("The best hero ever!").unwrap(),
+        bcs::to_bytes("Male").unwrap(),
+        bcs::to_bytes("Wukong").unwrap(),
+        bcs::to_bytes("Monkey God").unwrap(),
+        bcs::to_bytes("404").unwrap(),
+    ]))
 }
