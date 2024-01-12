@@ -30,6 +30,21 @@ use std::{
 
 type TxnInput<T> = CapturedReads<T>;
 
+macro_rules! forward_on_success_or_skip_rest {
+    ($self:ident, $txn_idx:ident, $f:ident) => {{
+        $self.outputs[$txn_idx as usize]
+            .load()
+            .as_ref()
+            .map_or(vec![], |txn_output| match &txn_output.output_status {
+                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => t.$f(),
+                ExecutionStatus::Abort(_)
+                | ExecutionStatus::DirectWriteSetTransactionNotCapableError
+                | ExecutionStatus::SpeculativeExecutionAbortError(_)
+                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => vec![],
+            })
+    }};
+}
+
 // When a transaction is committed, the output delta writes must be populated by
 // the WriteOps corresponding to the deltas in the corresponding outputs.
 #[derive(Debug)]
@@ -248,7 +263,12 @@ impl<T: Transaction, O: TransactionOutput<Txn = T>, E: Debug + Send + Clone>
                         .into_iter()
                         .map(|(k, _)| k)
                         .chain(t.aggregator_v1_write_set().into_keys())
-                        .chain(t.aggregator_v1_delta_set().into_keys())
+                        .chain(
+                            t.aggregator_v1_delta_set()
+                                .into_iter()
+                                .map(|(k, _)| k)
+                                .collect::<Vec<_>>(),
+                        )
                         .map(|k| (k, KeyKind::Resource))
                         .chain(
                             t.module_write_set()
@@ -271,18 +291,19 @@ impl<T: Transaction, O: TransactionOutput<Txn = T>, E: Debug + Send + Clone>
     pub(crate) fn resource_write_set(
         &self,
         txn_idx: TxnIndex,
-    ) -> Option<Vec<(T::Key, (T::Value, Option<Arc<MoveTypeLayout>>))>> {
-        self.outputs[txn_idx as usize]
-            .load_full()
-            .and_then(|txn_output| match &txn_output.output_status {
+    ) -> Vec<(T::Key, (T::Value, Option<Arc<MoveTypeLayout>>))> {
+        self.outputs[txn_idx as usize].load_full().map_or(
+            Vec::new(),
+            |txn_output| match &txn_output.output_status {
                 ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    Some(t.resource_write_set())
+                    t.resource_write_set()
                 },
                 ExecutionStatus::Abort(_)
                 | ExecutionStatus::DirectWriteSetTransactionNotCapableError
                 | ExecutionStatus::SpeculativeExecutionAbortError(_)
-                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => None,
-            })
+                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => Vec::new(),
+            },
+        )
     }
 
     pub(crate) fn delayed_field_keys(
@@ -306,67 +327,26 @@ impl<T: Transaction, O: TransactionOutput<Txn = T>, E: Debug + Send + Clone>
     pub(crate) fn reads_needing_delayed_field_exchange(
         &self,
         txn_idx: TxnIndex,
-    ) -> Option<Vec<(T::Key, Arc<MoveTypeLayout>)>> {
-        self.outputs[txn_idx as usize]
-            .load()
-            .as_ref()
-            .and_then(|txn_output| match &txn_output.output_status {
-                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    Some(t.reads_needing_delayed_field_exchange())
-                },
-                ExecutionStatus::Abort(_)
-                | ExecutionStatus::DirectWriteSetTransactionNotCapableError
-                | ExecutionStatus::SpeculativeExecutionAbortError(_)
-                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => None,
-            })
+    ) -> Vec<(T::Key, Arc<MoveTypeLayout>)> {
+        forward_on_success_or_skip_rest!(self, txn_idx, reads_needing_delayed_field_exchange)
     }
 
     pub(crate) fn group_reads_needing_delayed_field_exchange(
         &self,
         txn_idx: TxnIndex,
-    ) -> Option<Vec<(T::Key, T::Value)>> {
-        self.outputs[txn_idx as usize]
-            .load()
-            .as_ref()
-            .and_then(|txn_output| match &txn_output.output_status {
-                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    Some(t.group_reads_needing_delayed_field_exchange())
-                },
-                ExecutionStatus::Abort(_)
-                | ExecutionStatus::DirectWriteSetTransactionNotCapableError
-                | ExecutionStatus::SpeculativeExecutionAbortError(_)
-                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => None,
-            })
+    ) -> Vec<(T::Key, T::Value)> {
+        forward_on_success_or_skip_rest!(self, txn_idx, group_reads_needing_delayed_field_exchange)
     }
 
     pub(crate) fn aggregator_v1_delta_keys(&self, txn_idx: TxnIndex) -> Vec<T::Key> {
-        self.outputs[txn_idx as usize].load().as_ref().map_or(
-            vec![],
-            |txn_output| match &txn_output.output_status {
-                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    t.aggregator_v1_delta_set().into_keys().collect()
-                },
-                ExecutionStatus::Abort(_)
-                | ExecutionStatus::DirectWriteSetTransactionNotCapableError
-                | ExecutionStatus::SpeculativeExecutionAbortError(_)
-                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => vec![],
-            },
-        )
+        forward_on_success_or_skip_rest!(self, txn_idx, aggregator_v1_delta_set)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect()
     }
 
-    pub(crate) fn group_metadata_ops(&self, txn_idx: TxnIndex) -> Vec<(T::Key, T::Value)> {
-        self.outputs[txn_idx as usize].load().as_ref().map_or(
-            vec![],
-            |txn_output| match &txn_output.output_status {
-                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    t.resource_group_metadata_ops()
-                },
-                ExecutionStatus::Abort(_)
-                | ExecutionStatus::DirectWriteSetTransactionNotCapableError
-                | ExecutionStatus::SpeculativeExecutionAbortError(_)
-                | ExecutionStatus::DelayedFieldsCodeInvariantError(_) => vec![],
-            },
-        )
+    pub(crate) fn resource_group_metadata_ops(&self, txn_idx: TxnIndex) -> Vec<(T::Key, T::Value)> {
+        forward_on_success_or_skip_rest!(self, txn_idx, resource_group_metadata_ops)
     }
 
     pub(crate) fn events(

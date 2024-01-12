@@ -189,14 +189,16 @@ impl BlockExecutorTransactionOutput for AptosTransactionOutput {
     }
 
     /// Should never be called after incorporating materialized output, as that consumes vm_output.
-    fn aggregator_v1_delta_set(&self) -> BTreeMap<StateKey, DeltaOp> {
+    fn aggregator_v1_delta_set(&self) -> Vec<(StateKey, DeltaOp)> {
         self.vm_output
             .lock()
             .as_ref()
             .expect("Output must be set to get deltas")
             .change_set()
             .aggregator_v1_delta_set()
-            .clone()
+            .iter()
+            .cloned()
+            .collect()
     }
 
     /// Should never be called after incorporating materialized output, as that consumes vm_output.

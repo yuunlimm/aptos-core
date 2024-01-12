@@ -230,13 +230,11 @@ impl ValueType {
                 v.into()
             }),
             metadata: StateValueMetadata::none(),
-            write_op_kind: ExplicitSyncWrapper::new(
-                if !use_value {
-                    WriteOpKind::Deletion
-                } else {
-                    WriteOpKind::Creation
-                },
-            ),
+            write_op_kind: ExplicitSyncWrapper::new(if !use_value {
+                WriteOpKind::Deletion
+            } else {
+                WriteOpKind::Creation
+            }),
         }
     }
 
@@ -245,13 +243,11 @@ impl ValueType {
         Self {
             bytes: (len > 0).then_some(vec![100_u8; len].into()),
             metadata,
-            write_op_kind: ExplicitSyncWrapper::new(
-                if len == 0 {
-                    WriteOpKind::Deletion
-                } else {
-                    WriteOpKind::Creation
-                },
-            ),
+            write_op_kind: ExplicitSyncWrapper::new(if len == 0 {
+                WriteOpKind::Deletion
+            } else {
+                WriteOpKind::Creation
+            }),
         }
     }
 }
@@ -273,13 +269,11 @@ impl TransactionWrite for ValueType {
         Self {
             bytes: maybe_bytes,
             metadata: maybe_metadata,
-            write_op_kind: ExplicitSyncWrapper::new(
-                if empty {
-                    WriteOpKind::Deletion
-                } else {
-                    WriteOpKind::Creation
-                },
-            ),
+            write_op_kind: ExplicitSyncWrapper::new(if empty {
+                WriteOpKind::Deletion
+            } else {
+                WriteOpKind::Creation
+            }),
         }
     }
 
@@ -1026,8 +1020,8 @@ where
         BTreeMap::new()
     }
 
-    fn aggregator_v1_delta_set(&self) -> BTreeMap<K, DeltaOp> {
-        self.deltas.iter().cloned().collect()
+    fn aggregator_v1_delta_set(&self) -> Vec<(K, DeltaOp)> {
+        self.deltas.clone()
     }
 
     fn delayed_field_change_set(
