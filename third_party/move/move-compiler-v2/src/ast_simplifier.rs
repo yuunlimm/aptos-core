@@ -544,21 +544,11 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         }
     }
 
-    fn rewrite_temporary(&mut self, id: NodeId, idx: TempIndex) -> Option<Exp> {
-        if let Some(name) = self.cached_params.get(idx).map(|p| p.0) {
-            self.rewrite_to_recorded_value(id, name)
-        } else {
-            let loc = self.env.get_node_loc(id);
-            self.env.diag(
-                Severity::Bug,
-                &loc,
-                &format!(
-                    "Impossible use of temporary with no corresponding parameter `{}`",
-                    idx
-                ),
-            );
-            None
-        }
+    fn rewrite_temporary(&mut self, _id: NodeId, _idx: TempIndex) -> Option<Exp> {
+        // Note that at this phase of compilation, any temporary must refer to
+        // a parameter.  This means that the value is comes from outside and is
+        // unknown, so no rewrite will be useful.
+        None
     }
 
     fn rewrite_call(&mut self, id: NodeId, oper: &Operation, args: &[Exp]) -> Option<Exp> {
