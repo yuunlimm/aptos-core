@@ -325,52 +325,32 @@ impl<'env> SimplifierRewriter<'env> {
     /// If symbol `sym` has a recorded value that is currently visible, then
     /// build an expression to produce that value. `sym` is unremapped.
     fn rewrite_to_recorded_value(&mut self, id: NodeId, sym: Symbol) -> Option<Exp> {
-        let opt_remapped_symbol = self.remapped_symbol.get(&sym);
-        if let Some(remapped_sym) = opt_remapped_symbol {
-            if let Some(val) = self.values.get(remapped_sym) {
-                use SimpleValue::*;
-                match val {
-                    Value(val) => Some(ExpData::Value(id, val.clone()).into_exp()),
-                    Temporary(idx) => {
-                        if let Some(name) = self.cached_params.get(*idx).map(|param| param.0) {
-                            Some(ExpData::LocalVar(id, name).into_exp())
-                        } else {
-                            let loc = self.env.get_node_loc(id);
-                            self.env.diag(
-                                Severity::Bug,
-                                &loc,
-                                &format!(
-                                    "Impossible use of temporary with no corresponding parameter `{}`",
-                                    idx
-                                ),
-                            );
-                            Some(ExpData::LocalVar(id, *remapped_sym).into_exp())
-                        }
-                    },
-                    LocalVar(sym) => Some(ExpData::LocalVar(id, *sym).into_exp()),
-                    Unknown => Some(ExpData::LocalVar(id, *remapped_sym).into_exp()),
-                }
-            } else {
-                Some(ExpData::LocalVar(id, *remapped_sym).into_exp())
+        let remapped_sym = self.remapped_symbol.get(&sym).unwrap_or(&sym);
+        if let Some(val) = self.values.get(remapped_sym) {
+            use SimpleValue::*;
+            match val {
+                Value(val) => Some(ExpData::Value(id, val.clone()).into_exp()),
+                Temporary(idx) => Some(ExpData::Temporary(id, *idx).into_exp()),
+                LocalVar(sym) => Some(ExpData::LocalVar(id, *sym).into_exp()),
+                Unknown => Some(ExpData::LocalVar(id, *remapped_sym).into_exp()),
             }
         } else {
-            // Symbol was not remapped.  Should be a temporary.
-            None
+            Some(ExpData::LocalVar(id, *remapped_sym).into_exp())
         }
     }
 
     // Try resolving the value of `remapped_sym`.
     // If we can find value for it, return a `SimpleValue` describing that value.
-    // If no useful value is found, returns `SimpleValue::Unknown`.
-    fn resolve_var_value(&self, id: NodeId, mapped_sym: Symbol, count: usize) -> SimpleValue {
-        if let Some(val) = self.values.get(&mapped_sym) {
+    // If no useful value is found, returns itself.
+    fn resolve_var_value(&self, id: NodeId, remapped_sym: Symbol, count: usize) -> SimpleValue {
+        if let Some(val) = self.values.get(&remapped_sym) {
             self.resolve_simple_value(id, val.clone(), count)
         } else {
-            SimpleValue::Unknown
+            SimpleValue::LocalVar(remapped_sym)
         }
     }
 
-    // Try resolving `value`, returning `None` if it is already in its simplest form.
+    // Try resolving `value`, returning it directly if it is already in its simplest form.
     //
     // If it is a variable, then try to resolve the variable to a more interesting
     // value using `resolve_var_value`.
@@ -381,58 +361,14 @@ impl<'env> SimplifierRewriter<'env> {
         use SimpleValue::*;
         let new_count = count + 1;
         assert!(new_count < 10);
-        match value {
-            Value(..) => SimpleValue::Unknown,
-            Temporary(idx) => {
-                if let Some(sym) = self.cached_params.get(idx).map(|p| p.0) {
-                    if let Some(mapped_sym) = self.remapped_symbol.get(&sym) {
-                        self.resolve_var_value(id, *mapped_sym, new_count)
-                    } else {
-                        self.resolve_var_value(id, sym, new_count)
-                        // let loc = self.env.get_node_loc(id);
-                        // self.env.diag(
-                        //     Severity::Bug,
-                        //     &loc,
-                        //     &format!(
-                        //         "Temp `{}` Symbol `{}` has no remapping",
-                        //         idx,
-                        //         sym.display(self.env.symbol_pool())
-                        //     ),
-                        // );
-                        // None
-                    }
-                } else {
-                    let loc = self.env.get_node_loc(id);
-                    self.env.diag(
-                        Severity::Bug,
-                        &loc,
-                        &format!(
-                            "Impossible use of temporary with no corresponding parameter `{}`",
-                            idx
-                        ),
-                    );
-                    SimpleValue::Unknown
-                }
-            },
-            LocalVar(sym) => {
-                self.resolve_var_value(id, sym, new_count);
-                if let Some(mapped_sym) = self.remapped_symbol.get(&sym) {
-                    self.resolve_var_value(id, *mapped_sym, new_count)
-                } else {
-                    self.resolve_var_value(id, sym, new_count)
-                    // let loc = self.env.get_node_loc(id);
-                    // self.env.diag(
-                    //     Severity::Bug,
-                    //     &loc,
-                    //     &format!(
-                    //         "Symbol `{}` has no remapping",
-                    //         sym.display(self.env.symbol_pool())
-                    //     ),
-                    // );
-                    // None
-                }
-            },
-            Unknown => SimpleValue::Unknown,
+        if let LocalVar(sym) = value {
+            if let Some(mapped_sym) = self.remapped_symbol.get(&sym) {
+                self.resolve_var_value(id, *mapped_sym, new_count)
+            } else {
+                self.resolve_var_value(id, sym, new_count)
+            }
+        } else {
+            value
         }
     }
 
@@ -443,9 +379,7 @@ impl<'env> SimplifierRewriter<'env> {
                 ExpData::LocalVar(id, sym) => {
                     self.resolve_simple_value(*id, SimpleValue::LocalVar(*sym), 0)
                 },
-                ExpData::Temporary(id, idx) => {
-                    self.resolve_simple_value(*id, SimpleValue::Temporary(*idx), 0)
-                },
+                ExpData::Temporary(_id, idx) => SimpleValue::Temporary(*idx),
                 _ => SimpleValue::Unknown,
             }
         } else {
