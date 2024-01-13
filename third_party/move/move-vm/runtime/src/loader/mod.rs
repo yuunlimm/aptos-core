@@ -243,7 +243,7 @@ impl Loader {
         data_store: &TransactionDataCache,
         module_store: &ModuleStorageAdapter,
     ) -> VMResult<(Arc<Function>, LoadedFunctionInstantiation)> {
-        // retrieve or load the script
+        // Retrieve or load the script.
         let mut sha3_256 = Sha3_256::new();
         sha3_256.update(script_blob);
         let hash_value: [u8; 32] = sha3_256.finalize().into();
@@ -259,7 +259,7 @@ impl Loader {
             },
         };
 
-        // verify type arguments
+        // Verify type arguments.
         let mut type_arguments = vec![];
         for ty in ty_args {
             type_arguments.push(self.load_type(ty, data_store, module_store)?);
@@ -272,13 +272,22 @@ impl Loader {
                 .sum::<u64>()
                 > MAX_TYPE_INSTANTIATION_NODES
         {
-            return Err(
-                PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES).finish(Location::Script)
-            );
+            return Err(PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES)
+                .with_message(format!(
+                    "Too many type nodes when instantiating a type for script {}",
+                    &main.name
+                ))
+                .finish(Location::Script));
         };
 
         self.verify_ty_args(main.type_parameters(), &type_arguments)
-            .map_err(|e| e.finish(Location::Script))?;
+            .map_err(|e| {
+                e.with_message(format!(
+                    "Failed to verify type arguments for script {}",
+                    &main.name
+                ))
+                .finish(Location::Script)
+            })?;
         let instantiation = LoadedFunctionInstantiation {
             type_arguments,
             parameters,
@@ -1312,7 +1321,12 @@ impl<'a> Resolver<'a> {
         for ty in ty_args.iter().chain(struct_inst.instantiation.iter()) {
             sum_nodes = sum_nodes.saturating_add(self.loader.count_type_nodes(ty));
             if sum_nodes > MAX_TYPE_INSTANTIATION_NODES {
-                return Err(PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES));
+                return Err(
+                    PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES).with_message(format!(
+                    "Too many type instantiation nodes when constructing a struct type: {} < {}",
+                    MAX_TYPE_INSTANTIATION_NODES, sum_nodes
+                )),
+                );
             }
         }
 
@@ -1670,7 +1684,7 @@ impl Loader {
             Type::Reference(_) | Type::MutableReference(_) | Type::TyParam(_) => {
                 return Err(
                     PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
-                        .with_message(format!("no type tag for {:?}", ty)),
+                        .with_message(format!("No type tag for {:?}", ty)),
                 );
             },
         })
@@ -1703,8 +1717,8 @@ impl Loader {
 
     fn struct_name_to_type_layout(
         &self,
-        module_store: &ModuleStorageAdapter,
         struct_idx: StructNameIndex,
+        module_store: &ModuleStorageAdapter,
         ty_args: &[Type],
         count: &mut u64,
         depth: u64,
@@ -1737,7 +1751,7 @@ impl Loader {
         let (mut field_layouts, field_has_identifier_mappings): (Vec<MoveTypeLayout>, Vec<bool>) =
             field_tys
                 .iter()
-                .map(|ty| self.type_to_type_layout_impl(ty, module_store, count, depth + 1))
+                .map(|ty| self.type_to_type_layout_impl(ty, module_store, count, depth))
                 .collect::<PartialVMResult<Vec<_>>>()?
                 .into_iter()
                 .unzip();
@@ -1811,10 +1825,20 @@ impl Loader {
         depth: u64,
     ) -> PartialVMResult<(MoveTypeLayout, bool)> {
         if *count > MAX_TYPE_TO_LAYOUT_NODES {
-            return Err(PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES));
+            return Err(
+                PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES).with_message(format!(
+                    "Too many type nodes when constructing type layout: {} < {}",
+                    MAX_TYPE_TO_LAYOUT_NODES, count
+                )),
+            );
         }
         if depth > VALUE_DEPTH_MAX {
-            return Err(PartialVMError::new(StatusCode::VM_MAX_VALUE_DEPTH_REACHED));
+            return Err(
+                PartialVMError::new(StatusCode::VM_MAX_VALUE_DEPTH_REACHED).with_message(format!(
+                    "Maximum depth reached when constructing type layout: {} < {}",
+                    VALUE_DEPTH_MAX, depth
+                )),
+            );
         }
         Ok(match ty {
             Type::Bool => {
@@ -1864,22 +1888,20 @@ impl Loader {
             },
             Type::Struct { idx, .. } => {
                 *count += 1;
-                // Note depth is incread inside struct_name_to_type_layout instead.
                 let (layout, has_identifier_mappings) =
-                    self.struct_name_to_type_layout(module_store, *idx, &[], count, depth)?;
+                    self.struct_name_to_type_layout(*idx, module_store, &[], count, depth + 1)?;
                 (MoveTypeLayout::Struct(layout), has_identifier_mappings)
             },
             Type::StructInstantiation { idx, ty_args, .. } => {
                 *count += 1;
-                // Note depth is incread inside struct_name_to_type_layout instead.
                 let (layout, has_identifier_mappings) =
-                    self.struct_name_to_type_layout(module_store, *idx, ty_args, count, depth)?;
+                    self.struct_name_to_type_layout(*idx, module_store, ty_args, count, depth + 1)?;
                 (MoveTypeLayout::Struct(layout), has_identifier_mappings)
             },
             Type::Reference(_) | Type::MutableReference(_) | Type::TyParam(_) => {
                 return Err(
                     PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
-                        .with_message(format!("no type layout for {:?}", ty)),
+                        .with_message(format!("No type layout for {:?}", ty)),
                 );
             },
         })
@@ -1909,8 +1931,10 @@ impl Loader {
         if struct_type.fields.len() != struct_type.field_names.len() {
             return Err(
                 PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR).with_message(
-                    "Field types did not match the length of field names in loaded struct"
-                        .to_owned(),
+                    format!(
+                    "Field types did not match the length of field names in loaded struct {}::{}",
+                    &name.module, &name.name
+                ),
                 ),
             );
         }
@@ -1930,7 +1954,7 @@ impl Loader {
             .map(|(n, ty)| {
                 let ty = self.subst(ty, ty_args)?;
                 let l =
-                    self.type_to_fully_annotated_layout_impl(&ty, module_store, count, depth + 1)?;
+                    self.type_to_fully_annotated_layout_impl(&ty, module_store, count, depth)?;
                 Ok(MoveFieldLayout::new(n.clone(), l))
             })
             .collect::<PartialVMResult<Vec<_>>>()?;
@@ -1958,10 +1982,20 @@ impl Loader {
         depth: u64,
     ) -> PartialVMResult<MoveTypeLayout> {
         if *count > MAX_TYPE_TO_LAYOUT_NODES {
-            return Err(PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES));
+            return Err(
+                PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES).with_message(format!(
+                    "Too many type nodes when constructing type layout: {} < {}",
+                    MAX_TYPE_TO_LAYOUT_NODES, count
+                )),
+            );
         }
         if depth > VALUE_DEPTH_MAX {
-            return Err(PartialVMError::new(StatusCode::VM_MAX_VALUE_DEPTH_REACHED));
+            return Err(
+                PartialVMError::new(StatusCode::VM_MAX_VALUE_DEPTH_REACHED).with_message(format!(
+                    "Maximum depth reached when constructing type layout: {} < {}",
+                    VALUE_DEPTH_MAX, depth
+                )),
+            );
         }
         Ok(match ty {
             Type::Bool => MoveTypeLayout::Bool,
@@ -1977,7 +2011,7 @@ impl Loader {
                 self.type_to_fully_annotated_layout_impl(ty, module_store, count, depth + 1)?,
             )),
             Type::Struct { idx, .. } => MoveTypeLayout::Struct(
-                self.struct_name_to_fully_annotated_layout(*idx, module_store, &[], count, depth)?,
+                self.struct_name_to_fully_annotated_layout(*idx, module_store, &[], count, depth + 1)?,
             ),
             Type::StructInstantiation {
                 idx: name, ty_args, ..
@@ -1986,12 +2020,12 @@ impl Loader {
                 module_store,
                 ty_args,
                 count,
-                depth,
+                depth + 1,
             )?),
             Type::Reference(_) | Type::MutableReference(_) | Type::TyParam(_) => {
                 return Err(
                     PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
-                        .with_message(format!("no type layout for {:?}", ty)),
+                        .with_message(format!("No type layout for {:?}", ty)),
                 );
             },
         })
