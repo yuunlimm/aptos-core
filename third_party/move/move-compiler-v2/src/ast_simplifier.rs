@@ -22,7 +22,7 @@ use std::{
     vec::Vec,
 };
 
-static SIMPLIFIER_DEBUG: bool = true;
+static SIMPLIFIER_DEBUG: bool = false;
 
 pub fn run_simplifier(env: &mut GlobalEnv, eliminate_code: bool) {
     let mut rewriter = SimplifierRewriter::new(env, eliminate_code);
@@ -142,14 +142,31 @@ fn find_possibly_modified_vars(
         match e {
             Invalid(_) | Value(..) | LoopCont(..) | SpecBlock(..) => {},
             LocalVar(_id, sym) => {
+                let current_binding = visiting_binding.get(sym);
                 if modifying {
-                    unsafe_variables.insert((*sym, visiting_binding.get(sym).copied()));
+                    if SIMPLIFIER_DEBUG {
+                        eprintln!(
+                            "Var {} in binding {:?} is unsafe",
+                            sym.display(env.symbol_pool()),
+                            current_binding
+                        );
+                    }
+                    unsafe_variables.insert((*sym, current_binding.copied()));
                 };
             },
             Temporary(id, idx) => {
                 if let Some(sym) = params.get(*idx).map(|p| p.0) {
                     if modifying {
-                        unsafe_variables.insert((sym, visiting_binding.get(&sym).copied()));
+                        let current_binding = visiting_binding.get(&sym);
+                        if SIMPLIFIER_DEBUG {
+                            eprintln!(
+                                "Temp {} = Var {} in binding {:?} is unsafe",
+                                *idx,
+                                sym.display(env.symbol_pool()),
+                                current_binding
+                            );
+                        }
+                        unsafe_variables.insert((sym, current_binding.copied()));
                     };
                 } else {
                     let loc = env.get_node_loc(*id);
@@ -247,7 +264,15 @@ fn find_possibly_modified_vars(
                 if !up {
                     // add vars in pat to modified vars
                     for (_pat_var_id, sym) in pat.vars() {
-                        unsafe_variables.insert((sym, visiting_binding.get(&sym).copied()));
+                        let current_binding = visiting_binding.get(&sym);
+                        if SIMPLIFIER_DEBUG {
+                            eprintln!(
+                                "Var {} in binding {:?} is unsafe",
+                                sym.display(env.symbol_pool()),
+                                current_binding
+                            );
+                        }
+                        unsafe_variables.insert((sym, current_binding.copied()));
                     }
                 };
             },
@@ -332,6 +357,9 @@ impl<'env> SimplifierRewriter<'env> {
         self.visiting_binding.clear();
         self.values.clear();
         self.remapped_symbol.clear();
+        if SIMPLIFIER_DEBUG {
+            eprintln!("Unsafe variables are {:#?}", self.unsafe_variables);
+        }
         self.rewrite_exp(exp)
     }
 
