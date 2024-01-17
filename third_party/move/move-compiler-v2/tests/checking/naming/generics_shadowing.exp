@@ -4,13 +4,7 @@ module 0x2::M {
         dummy_field: bool,
     }
     private fun foo<S>(s: #0): #0 {
-        {
-          let s: S = s;
-          {
-            let s$0$: S = s;
-            s$0$
-          }
-        }
+        s
     }
     spec fun $foo<S>(s: #0): #0 {
         {

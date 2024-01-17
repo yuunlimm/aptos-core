@@ -67,20 +67,17 @@ module 0x8675::M {
         }
     }
     private fun test1(r: u64): u64 {
-        {
-          let t: u64 = r;
-          loop {
-            if Gt<u64>(r, 0) {
-              r: u64 = Sub<u64>(r, 1);
-              Tuple()
-            } else {
-              break
-            }
-          };
-          {
-            let t2: u64 = Add<u64>(r, t);
-            t2
+        loop {
+          if Gt<u64>(r, 0) {
+            r: u64 = Sub<u64>(r, 1);
+            Tuple()
+          } else {
+            break
           }
+        };
+        {
+          let t2: u64 = Add<u64>(r, r);
+          t2
         }
     }
     spec fun $id<T>(r: #0): #0 {
