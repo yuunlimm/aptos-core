@@ -2211,7 +2211,11 @@ impl<'a> fmt::Display for ExpDisplay<'a> {
                     .as_ref()
                     .and_then(|fe| fe.get_parameters().get(*idx).map(|p| p.0))
                 {
-                    write!(f, "$t{}={}", idx, name.display(self.env.symbol_pool()))
+                    if self.verbose {
+                        write!(f, "$t{}={}", idx, name.display(self.env.symbol_pool()))
+                    } else {
+                        write!(f, "{}", name.display(self.env.symbol_pool()))
+                    }
                 } else {
                     write!(f, "$t{}", idx)
                 }
