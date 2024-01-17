@@ -1213,7 +1213,7 @@ where
         executor_arguments: E::Argument,
         signature_verified_block: &[T],
         base_view: &S,
-        dynamic_change_set_optimizations_enabled: bool,
+        dynamic_change_set_optimizations_capable: bool,
     ) -> Result<BlockOutput<E::Output>, E::Error> {
         let num_txns = signature_verified_block.len();
         let init_timer = VM_INIT_SECONDS.start_timer();
@@ -1236,7 +1236,7 @@ where
                     &unsync_map,
                     start_counter,
                     &counter,
-                    dynamic_change_set_optimizations_enabled,
+                    dynamic_change_set_optimizations_capable,
                 )),
                 idx as TxnIndex,
             );
@@ -1295,7 +1295,8 @@ where
                     // TODO[agg_v2](fix): return code invariant error if dynamic change set optimizations disabled.
                     Self::apply_output_sequential(&unsync_map, &output)?;
 
-                    if dynamic_change_set_optimizations_enabled {
+                    // If dynamic change set optimizations are enabled, we might have resource groups that needs to be finalized
+                    if dynamic_change_set_optimizations_capable {
                         let group_metadata_ops = output.resource_group_metadata_ops();
                         let mut finalized_groups = Vec::with_capacity(group_metadata_ops.len());
                         for (group_key, group_metadata_op) in group_metadata_ops.into_iter() {
@@ -1445,12 +1446,7 @@ where
         signature_verified_block: &[T],
         base_view: &S,
     ) -> Result<BlockOutput<E::Output>, E::Error> {
-        let dynamic_change_set_optimizations_enabled = signature_verified_block.len() != 1
-            || E::is_transaction_dynamic_change_set_capable(&signature_verified_block[0]);
-
-        let mut ret = if self.config.local.concurrency_level > 1
-            && dynamic_change_set_optimizations_enabled
-        {
+        let mut ret = if self.config.local.concurrency_level > 1 {
             self.execute_transactions_parallel(
                 executor_arguments,
                 signature_verified_block,
@@ -1461,7 +1457,7 @@ where
                 executor_arguments,
                 signature_verified_block,
                 base_view,
-                dynamic_change_set_optimizations_enabled,
+                true,
             )
         };
 
@@ -1495,7 +1491,7 @@ where
                     executor_arguments,
                     signature_verified_block,
                     base_view,
-                    dynamic_change_set_optimizations_enabled,
+                    true,
                 );
             }
         }
