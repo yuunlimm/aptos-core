@@ -272,6 +272,10 @@ pub fn run_benchmark<V>(
     info!("Overall TPS: {} txn/s", delta_v / elapsed);
     info!("Overall GPS: {} gas/s", delta_gas.gas / elapsed);
     info!(
+        "Overall effective Gas: {} gas",
+        delta_gas.effective_block_gas
+    );
+    info!(
         "Overall effectiveGPS: {} gas/s",
         delta_gas.effective_block_gas / elapsed
     );
