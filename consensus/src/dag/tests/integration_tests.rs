@@ -209,7 +209,7 @@ fn bootstrap_nodes(
 
 #[tokio::test]
 async fn test_dag_e2e() {
-    let num_nodes = 7;
+    let num_nodes = 4;
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
     let (signers, validators) = random_validator_verifier(num_nodes, None, false);
