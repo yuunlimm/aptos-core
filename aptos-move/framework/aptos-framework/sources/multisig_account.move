@@ -41,7 +41,7 @@ module aptos_framework::multisig_account {
     use aptos_framework::chain_id;
     use aptos_framework::create_signer::create_signer;
     use aptos_framework::coin;
-    use aptos_framework::event::{EventHandle, emit_event};
+    use aptos_framework::event::{EventHandle, emit_event, emit};
     use aptos_framework::timestamp::now_seconds;
     use aptos_std::simple_map::{Self, SimpleMap};
     use aptos_std::table::{Self, Table};
@@ -197,13 +197,32 @@ module aptos_framework::multisig_account {
         owners_added: vector<address>,
     }
 
+    #[event]
+    struct AddOwners has drop, store {
+        multisig_account: address,
+        owners_added: vector<address>,
+    }
+
     /// Event emitted when new owners are removed from the multisig account.
     struct RemoveOwnersEvent has drop, store {
         owners_removed: vector<address>,
     }
 
+    #[event]
+    struct RemoveOwners has drop, store {
+        multisig_account: address,
+        owners_removed: vector<address>,
+    }
+
     /// Event emitted when the number of signatures required is updated.
     struct UpdateSignaturesRequiredEvent has drop, store {
+        old_num_signatures_required: u64,
+        new_num_signatures_required: u64,
+    }
+
+    #[event]
+    struct UpdateSignaturesRequired has drop, store {
+        multisig_account: address,
         old_num_signatures_required: u64,
         new_num_signatures_required: u64,
     }
@@ -215,8 +234,24 @@ module aptos_framework::multisig_account {
         transaction: MultisigTransaction,
     }
 
+    #[event]
+    struct CreateTransaction has drop, store {
+        multisig_account: address,
+        creator: address,
+        sequence_number: u64,
+        transaction: MultisigTransaction,
+    }
+
     /// Event emitted when an owner approves or rejects a transaction.
     struct VoteEvent has drop, store {
+        owner: address,
+        sequence_number: u64,
+        approved: bool,
+    }
+
+    #[event]
+    struct Vote has drop, store {
+        multisig_account: address,
         owner: address,
         sequence_number: u64,
         approved: bool,
@@ -230,8 +265,25 @@ module aptos_framework::multisig_account {
         executor: address,
     }
 
+    #[event]
+    struct ExecuteRejectedTransaction has drop, store {
+        multisig_account: address,
+        sequence_number: u64,
+        num_rejections: u64,
+        executor: address,
+    }
+
     /// Event emitted when a transaction is executed.
     struct TransactionExecutionSucceededEvent has drop, store {
+        executor: address,
+        sequence_number: u64,
+        transaction_payload: vector<u8>,
+        num_approvals: u64,
+    }
+
+    #[event]
+    struct TransactionExecutionSucceeded has drop, store {
+        multisig_account: address,
         executor: address,
         sequence_number: u64,
         transaction_payload: vector<u8>,
@@ -247,8 +299,25 @@ module aptos_framework::multisig_account {
         execution_error: ExecutionError,
     }
 
+    #[event]
+    struct TransactionExecutionFailed has drop, store {
+        multisig_account: address,
+        executor: address,
+        sequence_number: u64,
+        transaction_payload: vector<u8>,
+        num_approvals: u64,
+        execution_error: ExecutionError,
+    }
+
     /// Event emitted when a transaction's metadata is updated.
     struct MetadataUpdatedEvent has drop, store {
+        old_metadata: SimpleMap<String, vector<u8>>,
+        new_metadata: SimpleMap<String, vector<u8>>,
+    }
+
+    #[event]
+    struct MetadataUpdated has drop, store {
+        multisig_account: address,
         old_metadata: SimpleMap<String, vector<u8>>,
         new_metadata: SimpleMap<String, vector<u8>>,
     }
@@ -765,6 +834,13 @@ module aptos_framework::multisig_account {
                     new_metadata: multisig_account_resource.metadata,
                 }
             );
+            emit(
+                MetadataUpdated {
+                    multisig_account: multisig_address,
+                    old_metadata,
+                    new_metadata: multisig_account_resource.metadata,
+                }
+            )
         };
     }
 
@@ -790,7 +866,7 @@ module aptos_framework::multisig_account {
             creator,
             creation_time_secs: now_seconds(),
         };
-        add_transaction(creator, multisig_account_resource, transaction);
+        add_transaction(creator, multisig_account, multisig_account_resource, transaction);
     }
 
     /// Create a multisig transaction with a transaction hash instead of the full payload.
@@ -816,7 +892,7 @@ module aptos_framework::multisig_account {
             creator,
             creation_time_secs: now_seconds(),
         };
-        add_transaction(creator, multisig_account_resource, transaction);
+        add_transaction(creator, multisig_account, multisig_account_resource, transaction);
     }
 
     /// Approve a multisig transaction.
@@ -860,6 +936,14 @@ module aptos_framework::multisig_account {
                 approved,
             }
         );
+        emit(
+            Vote {
+                multisig_account,
+                owner: owner_addr,
+                sequence_number,
+                approved,
+            }
+        )
     }
 
     /// Remove the next transaction if it has sufficient owner rejections.
@@ -884,6 +968,14 @@ module aptos_framework::multisig_account {
         emit_event(
             &mut multisig_account_resource.execute_rejected_transaction_events,
             ExecuteRejectedTransactionEvent {
+                sequence_number,
+                num_rejections,
+                executor: address_of(owner),
+            }
+        );
+        emit(
+            ExecuteRejectedTransaction {
+                multisig_account,
                 sequence_number,
                 num_rejections,
                 executor: address_of(owner),
@@ -943,6 +1035,15 @@ module aptos_framework::multisig_account {
                 executor,
             }
         );
+        emit(
+            TransactionExecutionSucceeded {
+                multisig_account,
+                sequence_number: multisig_account_resource.last_executed_sequence_number,
+                transaction_payload,
+                num_approvals,
+                executor,
+            }
+        );
     }
 
     /// Post-execution cleanup for a failed multisig transaction execution.
@@ -965,6 +1066,16 @@ module aptos_framework::multisig_account {
                 execution_error,
             }
         );
+        emit(
+            TransactionExecutionFailed {
+                multisig_account,
+                executor,
+                sequence_number: multisig_account_resource.last_executed_sequence_number,
+                transaction_payload,
+                num_approvals,
+                execution_error,
+            }
+        );
     }
 
     ////////////////////////// Private functions ///////////////////////////////
@@ -977,7 +1088,7 @@ module aptos_framework::multisig_account {
         num_approvals_and_rejections(&multisig_account_resource.owners, &transaction)
     }
 
-    fun add_transaction(creator: address, multisig_account: &mut MultisigAccount, transaction: MultisigTransaction) {
+    fun add_transaction(creator: address, multisig_account_address: address, multisig_account: &mut MultisigAccount, transaction: MultisigTransaction) {
         // The transaction creator also automatically votes for the transaction.
         simple_map::add(&mut transaction.votes, creator, true);
 
@@ -988,6 +1099,7 @@ module aptos_framework::multisig_account {
             &mut multisig_account.create_transaction_events,
             CreateTransactionEvent { creator, sequence_number, transaction },
         );
+        emit(CreateTransaction { multisig_account: multisig_account_address, creator, sequence_number, transaction });
     }
 
     fun create_multisig_account(owner: &signer): (signer, SignerCapability) {
@@ -1080,6 +1192,7 @@ module aptos_framework::multisig_account {
                 &mut multisig_account_ref_mut.add_owners_events,
                 AddOwnersEvent { owners_added: new_owners }
             );
+            emit(AddOwners { multisig_account: multisig_address, owners_added: new_owners });
         };
         // If owners to remove provided, try to remove them.
         if (vector::length(&owners_to_remove) > 0) {
@@ -1101,6 +1214,9 @@ module aptos_framework::multisig_account {
                     &mut multisig_account_ref_mut.remove_owners_events,
                     RemoveOwnersEvent { owners_removed }
                 );
+                emit(
+                    RemoveOwners { multisig_account: multisig_address, owners_removed }
+                );
             }
         };
         // If new signature count provided, try to update count.
@@ -1120,6 +1236,13 @@ module aptos_framework::multisig_account {
                 emit_event(
                     &mut multisig_account_ref_mut.update_signature_required_events,
                     UpdateSignaturesRequiredEvent {
+                        old_num_signatures_required,
+                        new_num_signatures_required,
+                    }
+                );
+                emit(
+                    UpdateSignaturesRequired {
+                        multisig_account: multisig_address,
                         old_num_signatures_required,
                         new_num_signatures_required,
                     }

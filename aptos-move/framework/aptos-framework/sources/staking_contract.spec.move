@@ -256,12 +256,7 @@ spec aptos_framework::staking_contract {
         aborts_if account_addr != staker && account_addr != operator;
     }
 
-    spec request_commission_internal(
-        operator: address,
-        staking_contract: &mut StakingContract,
-        add_distribution_events: &mut EventHandle<AddDistributionEvent>,
-        request_commission_events: &mut EventHandle<RequestCommissionEvent>,
-    ): u64 {
+    spec request_commission_internal(operator: address, staking_contract: &mut StakingContract): u64 {
         // TODO: A data invariant not hold happened here involve with 'pool_u64' #L16.
         pragma verify = false;
         include GetStakingContractAmountsAbortsIf;
@@ -341,7 +336,6 @@ spec aptos_framework::staking_contract {
         staker: address,
         operator: address,
         staking_contract: &mut StakingContract,
-        distribute_events: &mut EventHandle<DistributeEvent>,
     ) {
         // TODO: Call `update_distribution_pool` and could not verify `update_distribution_pool`.
         pragma aborts_if_is_partial;
@@ -362,7 +356,6 @@ spec aptos_framework::staking_contract {
         staking_contract: &mut StakingContract,
         recipient: address,
         coins_amount: u64,
-        add_distribution_events: &mut EventHandle<AddDistributionEvent>,
     ) {
         // TODO: Call `update_distribution_pool` and could not verify `update_distribution_pool`.
         pragma verify = false;

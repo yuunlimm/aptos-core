@@ -139,6 +139,7 @@ module aptos_framework::voting {
         vote_events: EventHandle<VoteEvent>,
     }
 
+    #[event]
     struct CreateProposalEvent has drop, store {
         proposal_id: u64,
         early_resolution_vote_threshold: Option<u128>,
@@ -148,16 +149,19 @@ module aptos_framework::voting {
         min_vote_threshold: u128,
     }
 
+    #[event]
     struct RegisterForumEvent has drop, store {
         hosting_account: address,
         proposal_type_info: TypeInfo,
     }
 
+    #[event]
     struct VoteEvent has drop, store {
         proposal_id: u64,
         num_votes: u64,
     }
 
+    #[event]
     struct ResolveProposal has drop, store {
         proposal_id: u64,
         yes_votes: u128,
@@ -180,8 +184,7 @@ module aptos_framework::voting {
             }
         };
 
-        event::emit_event<RegisterForumEvent>(
-            &mut voting_forum.events.register_forum_events,
+        event::emit(
             RegisterForumEvent {
                 hosting_account: addr,
                 proposal_type_info: type_info::type_of<ProposalType>(),
@@ -293,8 +296,7 @@ module aptos_framework::voting {
             resolution_time_secs: 0,
         });
 
-        event::emit_event<CreateProposalEvent>(
-            &mut voting_forum.events.create_proposal_events,
+        event::emit(
             CreateProposalEvent {
                 proposal_id,
                 early_resolution_vote_threshold,
@@ -352,10 +354,7 @@ module aptos_framework::voting {
             simple_map::add(&mut proposal.metadata, key, timestamp_secs_bytes);
         };
 
-        event::emit_event<VoteEvent>(
-            &mut voting_forum.events.vote_events,
-            VoteEvent { proposal_id, num_votes },
-        );
+        event::emit(VoteEvent { proposal_id, num_votes });
     }
 
     /// Common checks on if a proposal is resolvable, regardless if the proposal is single-step or multi-step.
@@ -407,8 +406,7 @@ module aptos_framework::voting {
         proposal.is_resolved = true;
         proposal.resolution_time_secs = timestamp::now_seconds();
 
-        event::emit_event<ResolveProposal>(
-            &mut voting_forum.events.resolve_proposal_events,
+        event::emit(
             ResolveProposal {
                 proposal_id,
                 yes_votes: proposal.yes_votes,
@@ -475,8 +473,7 @@ module aptos_framework::voting {
         // For multi-step proposals, we emit one `ResolveProposal` event per step in the multi-step proposal. This means
         // that we emit multiple `ResolveProposal` events for the same multi-step proposal.
         let resolved_early = can_be_resolved_early(proposal);
-        event::emit_event<ResolveProposal>(
-            &mut voting_forum.events.resolve_proposal_events,
+        event::emit(
             ResolveProposal {
                 proposal_id,
                 yes_votes: proposal.yes_votes,

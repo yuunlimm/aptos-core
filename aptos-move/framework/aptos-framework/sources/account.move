@@ -600,7 +600,7 @@ module aptos_framework::account {
         let new_auth_key = from_bcs::to_address(new_auth_key_vector);
         table::add(address_map, new_auth_key, originating_addr);
 
-        event::emit<KeyRotation>(KeyRotation {
+        event::emit(KeyRotation {
             account: originating_addr,
             old_authentication_key: account_resource.authentication_key,
             new_authentication_key: new_auth_key_vector,

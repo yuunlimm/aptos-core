@@ -197,32 +197,38 @@ module aptos_framework::stake {
         validators: vector<IndividualValidatorPerformance>,
     }
 
+    #[event]
     struct RegisterValidatorCandidateEvent has drop, store {
         pool_address: address,
     }
 
+    #[event]
     struct SetOperatorEvent has drop, store {
         pool_address: address,
         old_operator: address,
         new_operator: address,
     }
 
+    #[event]
     struct AddStakeEvent has drop, store {
         pool_address: address,
         amount_added: u64,
     }
 
+    #[event]
     struct ReactivateStakeEvent has drop, store {
         pool_address: address,
         amount: u64,
     }
 
+    #[event]
     struct RotateConsensusKeyEvent has drop, store {
         pool_address: address,
         old_consensus_pubkey: vector<u8>,
         new_consensus_pubkey: vector<u8>,
     }
 
+    #[event]
     struct UpdateNetworkAndFullnodeAddressesEvent has drop, store {
         pool_address: address,
         old_network_addresses: vector<u8>,
@@ -231,31 +237,37 @@ module aptos_framework::stake {
         new_fullnode_addresses: vector<u8>,
     }
 
+    #[event]
     struct IncreaseLockupEvent has drop, store {
         pool_address: address,
         old_locked_until_secs: u64,
         new_locked_until_secs: u64,
     }
 
+    #[event]
     struct JoinValidatorSetEvent has drop, store {
         pool_address: address,
     }
 
+    #[event]
     struct DistributeRewardsEvent has drop, store {
         pool_address: address,
         rewards_amount: u64,
     }
 
+    #[event]
     struct UnlockStakeEvent has drop, store {
         pool_address: address,
         amount_unlocked: u64,
     }
 
+    #[event]
     struct WithdrawStakeEvent has drop, store {
         pool_address: address,
         amount_withdrawn: u64,
     }
 
+    #[event]
     struct LeaveValidatorSetEvent has drop, store {
         pool_address: address,
     }
@@ -580,8 +592,7 @@ module aptos_framework::stake {
         let old_operator = stake_pool.operator_address;
         stake_pool.operator_address = new_operator;
 
-        event::emit_event(
-            &mut stake_pool.set_operator_events,
+        event::emit(
             SetOperatorEvent {
                 pool_address,
                 old_operator,
@@ -648,8 +659,7 @@ module aptos_framework::stake {
         let voting_power = get_next_epoch_voting_power(stake_pool);
         assert!(voting_power <= maximum_stake, error::invalid_argument(ESTAKE_EXCEEDS_MAX));
 
-        event::emit_event(
-            &mut stake_pool.add_stake_events,
+        event::emit(
             AddStakeEvent {
                 pool_address,
                 amount_added: amount,
@@ -680,8 +690,7 @@ module aptos_framework::stake {
         let reactivated_coins = coin::extract(&mut stake_pool.pending_inactive, amount);
         coin::merge(&mut stake_pool.active, reactivated_coins);
 
-        event::emit_event(
-            &mut stake_pool.reactivate_stake_events,
+        event::emit(
             ReactivateStakeEvent {
                 pool_address,
                 amount,
@@ -711,8 +720,7 @@ module aptos_framework::stake {
         assert!(option::is_some(pubkey_from_pop), error::invalid_argument(EINVALID_PUBLIC_KEY));
         validator_info.consensus_pubkey = new_consensus_pubkey;
 
-        event::emit_event(
-            &mut stake_pool.rotate_consensus_key_events,
+        event::emit(
             RotateConsensusKeyEvent {
                 pool_address,
                 old_consensus_pubkey,
@@ -739,8 +747,7 @@ module aptos_framework::stake {
         let old_fullnode_addresses = validator_info.fullnode_addresses;
         validator_info.fullnode_addresses = new_fullnode_addresses;
 
-        event::emit_event(
-            &mut stake_pool.update_network_and_fullnode_addresses_events,
+        event::emit(
             UpdateNetworkAndFullnodeAddressesEvent {
                 pool_address,
                 old_network_addresses,
@@ -772,8 +779,7 @@ module aptos_framework::stake {
         assert!(old_locked_until_secs < new_locked_until_secs, error::invalid_argument(EINVALID_LOCKUP));
         stake_pool.locked_until_secs = new_locked_until_secs;
 
-        event::emit_event(
-            &mut stake_pool.increase_lockup_events,
+        event::emit(
             IncreaseLockupEvent {
                 pool_address,
                 old_locked_until_secs,
@@ -832,10 +838,7 @@ module aptos_framework::stake {
         let validator_set_size = vector::length(&validator_set.active_validators) + vector::length(&validator_set.pending_active);
         assert!(validator_set_size <= MAX_VALIDATOR_SET_SIZE, error::invalid_argument(EVALIDATOR_SET_TOO_LARGE));
 
-        event::emit_event(
-            &mut stake_pool.join_validator_set_events,
-            JoinValidatorSetEvent { pool_address },
-        );
+        event::emit(JoinValidatorSetEvent { pool_address });
     }
 
     /// Similar to unlock_with_cap but will use ownership capability from the signing account.
@@ -863,8 +866,7 @@ module aptos_framework::stake {
         let unlocked_stake = coin::extract(&mut stake_pool.active, amount);
         coin::merge<AptosCoin>(&mut stake_pool.pending_inactive, unlocked_stake);
 
-        event::emit_event(
-            &mut stake_pool.unlock_stake_events,
+        event::emit(
             UnlockStakeEvent {
                 pool_address,
                 amount_unlocked: amount,
@@ -905,8 +907,7 @@ module aptos_framework::stake {
         withdraw_amount = min(withdraw_amount, coin::value(&stake_pool.inactive));
         if (withdraw_amount == 0) return coin::zero<AptosCoin>();
 
-        event::emit_event(
-            &mut stake_pool.withdraw_stake_events,
+        event::emit(
             WithdrawStakeEvent {
                 pool_address,
                 amount_withdrawn: withdraw_amount,
@@ -965,12 +966,7 @@ module aptos_framework::stake {
             assert!(vector::length(&validator_set.active_validators) > 0, error::invalid_state(ELAST_VALIDATOR));
             vector::push_back(&mut validator_set.pending_inactive, validator_info);
 
-            event::emit_event(
-                &mut stake_pool.leave_validator_set_events,
-                LeaveValidatorSetEvent {
-                    pool_address,
-                },
-            );
+            event::emit(LeaveValidatorSetEvent { pool_address });
         };
     }
 
@@ -1209,13 +1205,7 @@ module aptos_framework::stake {
             );
         };
 
-        event::emit_event(
-            &mut stake_pool.distribute_rewards_events,
-            DistributeRewardsEvent {
-                pool_address,
-                rewards_amount,
-            },
-        );
+        event::emit(DistributeRewardsEvent { pool_address, rewards_amount });
     }
 
     /// Calculate the rewards amount.

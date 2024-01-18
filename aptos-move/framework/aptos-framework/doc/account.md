@@ -1785,7 +1785,7 @@ in the event of key recovery.
     <b>let</b> new_auth_key = <a href="../../aptos-stdlib/doc/from_bcs.md#0x1_from_bcs_to_address">from_bcs::to_address</a>(new_auth_key_vector);
     <a href="../../aptos-stdlib/doc/table.md#0x1_table_add">table::add</a>(address_map, new_auth_key, originating_addr);
 
-    <a href="event.md#0x1_event_emit">event::emit</a>&lt;<a href="account.md#0x1_account_KeyRotation">KeyRotation</a>&gt;(<a href="account.md#0x1_account_KeyRotation">KeyRotation</a> {
+    <a href="event.md#0x1_event_emit">event::emit</a>(<a href="account.md#0x1_account_KeyRotation">KeyRotation</a> {
         <a href="account.md#0x1_account">account</a>: originating_addr,
         old_authentication_key: account_resource.authentication_key,
         new_authentication_key: new_auth_key_vector,

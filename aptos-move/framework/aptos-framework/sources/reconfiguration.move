@@ -22,6 +22,7 @@ module aptos_framework::reconfiguration {
     friend aptos_framework::genesis;
     friend aptos_framework::version;
 
+    #[event]
     /// Event that signals consensus to start a new epoch,
     /// with new configuration information. This is also called a
     /// "reconfiguration event"
@@ -149,6 +150,11 @@ module aptos_framework::reconfiguration {
                 epoch: config_ref.epoch,
             },
         );
+        event::emit(
+            NewEpochEvent {
+                epoch: config_ref.epoch,
+            },
+        );
     }
 
     public fun last_reconfiguration_time(): u64 acquires Configuration {
@@ -168,6 +174,11 @@ module aptos_framework::reconfiguration {
 
         event::emit_event<NewEpochEvent>(
             &mut config_ref.events,
+            NewEpochEvent {
+                epoch: config_ref.epoch,
+            },
+        );
+        event::emit(
             NewEpochEvent {
                 epoch: config_ref.epoch,
             },

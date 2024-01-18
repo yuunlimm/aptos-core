@@ -29,6 +29,7 @@ module aptos_framework::block {
         update_epoch_interval_events: EventHandle<UpdateEpochIntervalEvent>,
     }
 
+    #[event]
     /// Should be in-sync with NewBlockEvent rust struct in new_block.rs
     struct NewBlockEvent has drop, store {
         hash: address,
@@ -42,6 +43,7 @@ module aptos_framework::block {
         time_microseconds: u64,
     }
 
+    #[event]
     /// Event emitted when a proposal is created.
     struct UpdateEpochIntervalEvent has drop, store {
         old_epoch_interval: u64,
@@ -88,6 +90,9 @@ module aptos_framework::block {
             &mut block_resource.update_epoch_interval_events,
             UpdateEpochIntervalEvent { old_epoch_interval, new_epoch_interval },
         );
+        event::emit(
+            UpdateEpochIntervalEvent { old_epoch_interval, new_epoch_interval },
+        );
     }
 
     #[view]
@@ -125,6 +130,7 @@ module aptos_framework::block {
         let block_metadata_ref = borrow_global_mut<BlockResource>(@aptos_framework);
         block_metadata_ref.height = event::counter(&block_metadata_ref.new_block_events);
 
+        // Emit both event v1 and v2 for compatibility. Eventually only module events will be kept.
         let new_block_event = NewBlockEvent {
             hash,
             epoch,
@@ -135,7 +141,17 @@ module aptos_framework::block {
             failed_proposer_indices,
             time_microseconds: timestamp,
         };
-        emit_new_block_event(&vm, &mut block_metadata_ref.new_block_events, new_block_event);
+        let new_block_event_v2 = NewBlockEvent {
+            hash,
+            epoch,
+            round,
+            height: block_metadata_ref.height,
+            previous_block_votes_bitvec,
+            proposer,
+            failed_proposer_indices,
+            time_microseconds: timestamp,
+        };
+        emit_new_block_event(&vm, &mut block_metadata_ref.new_block_events, new_block_event, new_block_event_v2);
 
         if (features::collect_and_distribute_gas_fees()) {
             // Assign the fees collected from the previous block to the previous block proposer.
@@ -163,13 +179,14 @@ module aptos_framework::block {
     }
 
     /// Emit the event and update height and global timestamp
-    fun emit_new_block_event(vm: &signer, event_handle: &mut EventHandle<NewBlockEvent>, new_block_event: NewBlockEvent) {
+    fun emit_new_block_event(vm: &signer, event_handle: &mut EventHandle<NewBlockEvent>, new_block_event: NewBlockEvent, new_block_event_v2: NewBlockEvent) {
         timestamp::update_global_time(vm, new_block_event.proposer, new_block_event.time_microseconds);
         assert!(
             event::counter(event_handle) == new_block_event.height,
             error::invalid_argument(ENUM_NEW_BLOCK_EVENTS_DOES_NOT_MATCH_BLOCK_HEIGHT),
         );
         event::emit_event<NewBlockEvent>(event_handle, new_block_event);
+        event::emit(new_block_event_v2);
     }
 
     /// Emit a `NewBlockEvent` event. This function will be invoked by genesis directly to generate the very first
@@ -180,6 +197,16 @@ module aptos_framework::block {
         emit_new_block_event(
             &vm,
             &mut block_metadata_ref.new_block_events,
+            NewBlockEvent {
+                hash: genesis_id,
+                epoch: 0,
+                round: 0,
+                height: 0,
+                previous_block_votes_bitvec: vector::empty(),
+                proposer: @vm_reserved,
+                failed_proposer_indices: vector::empty(),
+                time_microseconds: 0,
+            },
             NewBlockEvent {
                 hash: genesis_id,
                 epoch: 0,
@@ -202,6 +229,18 @@ module aptos_framework::block {
 
         event::emit_event<NewBlockEvent>(
             &mut block_metadata_ref.new_block_events,
+            NewBlockEvent {
+                hash: fake_block_hash,
+                epoch: reconfiguration::current_epoch(),
+                round: MAX_U64,
+                height: block_metadata_ref.height,
+                previous_block_votes_bitvec: vector::empty(),
+                proposer: @vm_reserved,
+                failed_proposer_indices: vector::empty(),
+                time_microseconds: timestamp::now_microseconds(),
+            }
+        );
+        event::emit(
             NewBlockEvent {
                 hash: fake_block_hash,
                 epoch: reconfiguration::current_epoch(),
