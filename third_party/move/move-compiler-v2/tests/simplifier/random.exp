@@ -67,17 +67,47 @@ module 0x8675::M {
         }
     }
     private fun test1(r: u64): u64 {
-        loop {
-          if Gt<u64>(r, 0) {
-            r: u64 = Sub<u64>(r, 1);
-            Tuple()
-          } else {
-            break
-          }
-        };
         {
-          let t2: u64 = Add<u64>(r, r);
-          t2
+          let t2: u64 = 0;
+          loop {
+            if Gt<u64>(r, 0) {
+              r: u64 = Sub<u64>(r, 1);
+              t2: u64 = Add<u64>(t2, r);
+              Tuple()
+            } else {
+              break
+            }
+          };
+          {
+            let t3: u64 = Add<u64>(Add<u64>(r, r), t2);
+            t3
+          }
+        }
+    }
+    private fun test1a(x: u64,r: &u64): u64 {
+        {
+          let t: u64 = Deref(r);
+          {
+            let t3: u64 = {
+              let (x: u64, _) = Tuple(x, r);
+              {
+                let r: u64 = Add<u64>(x, 3);
+                loop {
+                  if Gt<u64>(x, 0) {
+                    x: u64 = Sub<u64>(x, Deref(r));
+                    Tuple()
+                  } else {
+                    break
+                  }
+                };
+                Add<u64>(r, x)
+              }
+            };
+            {
+              let t2: u64 = Add<u64>(Deref(r), t);
+              Add<u64>(Add<u64>(t2, t3), t)
+            }
+          }
         }
     }
     spec fun $id<T>(r: #0): #0 {
@@ -86,32 +116,34 @@ module 0x8675::M {
     spec fun $id_mut<T>(r: #0): #0 {
         r
     }
+    spec fun $iterloop(x: u64,y: &u64): u64;
     spec fun $t0();
     spec fun $test1(r: u64): u64;
+    spec fun $test1a(x: u64,r: &u64): u64;
 } // end 0x8675::M
 
 
 Diagnostics:
 error: cannot mutably borrow local `v` since other references exists
-   ┌─ tests/simplifier/random.move:22:17
+   ┌─ tests/simplifier/random.move:40:17
    │
-21 │         let x = &mut v;
+39 │         let x = &mut v;
    │                 ------ previous mutable local borrow
-22 │         let y = &mut v; // error in v2
+40 │         let y = &mut v; // error in v2
    │                 ^^^^^^ mutable borrow attempted here
 
 error: cannot mutably borrow local `v` since other references exists
-   ┌─ tests/simplifier/random.move:33:17
+   ┌─ tests/simplifier/random.move:51:17
    │
-32 │         let x = id_mut(&mut v);
+50 │         let x = id_mut(&mut v);
    │                        ------ previous mutable local borrow
-33 │         let y = &mut v; // error in v2
+51 │         let y = &mut v; // error in v2
    │                 ^^^^^^ mutable borrow attempted here
 
 error: cannot mutably borrow local `v` since other references exists
-   ┌─ tests/simplifier/random.move:38:17
+   ┌─ tests/simplifier/random.move:56:17
    │
-37 │         let x = &v;
+55 │         let x = &v;
    │                 -- previous local borrow
-38 │         let y = &mut v;
+56 │         let y = &mut v;
    │                 ^^^^^^ mutable borrow attempted here
