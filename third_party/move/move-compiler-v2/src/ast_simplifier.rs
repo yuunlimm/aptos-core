@@ -384,8 +384,8 @@ struct SimplifierRewriter<'env> {
     // (This is used to allow references to symbols which are shadowed by inner reuse.)
     remapped_symbol: ScopedMap<Symbol, Symbol>,
 
-    // Tracks constant values from scope.  All symbols in keys and values are remapped.
-    // A variable without a constant value is unbound here.
+    // Tracks constant values from scope.  All symbols in keys and values are remapped.  A variable
+    // without a constant value or a constant but known value is bound to `SimpleValue::Unknown`.
     values: ScopedMap<Symbol, SimpleValue>,
 }
 
@@ -416,7 +416,6 @@ impl<'a, 'env> fmt::Display for DisplaySimpleValue<'a, 'env> {
             Temporary(idx) => write!(f, "Temporary({})", idx),
             LocalVar(sym) => write!(f, "LocalVar({})", sym.display(self.env.symbol_pool())),
             Unknown => write!(f, "Unknown"),
-            NonConstant => write!(f, "NonConstant"),
         }
     }
 }
@@ -474,6 +473,11 @@ impl<'env> SimplifierRewriter<'env> {
                     .join(", ")
             );
         }
+        self.values.enter_scope();
+        for param in &self.cached_params {
+            let sym = param.0;
+            self.values.insert(sym, SimpleValue::Unknown);
+        }
         self.rewrite_exp(exp)
     }
 
@@ -515,7 +519,11 @@ impl<'env> SimplifierRewriter<'env> {
                     remapped_sym.display(self.env.symbol_pool()),
                 );
             }
-            Some(ExpData::LocalVar(id, *remapped_sym).into_exp())
+            if remapped_sym != &sym {
+                Some(ExpData::LocalVar(id, *remapped_sym).into_exp())
+            } else {
+                None
+            }
         };
         if SIMPLIFIER_DEBUG {
             if let Some(e) = &result {
@@ -809,7 +817,7 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
                 }
             }
         } else {
-            // Body with no bindings, just shadow any old values.
+            // Body with no bindings, values have no known value.
             for (_, old_var) in pat.vars() {
                 new_binding.push((old_var, SimpleValue::Unknown));
             }
