@@ -2161,7 +2161,7 @@ impl ExpData {
             env: fun_env.module_env.env,
             exp: self,
             fun_env: Some(fun_env),
-            verbose: false,
+            verbose: true,
         }
     }
 
@@ -2197,7 +2197,7 @@ impl<'a> fmt::Display for ExpDisplay<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         use ExpData::*;
         if self.verbose {
-            write!(f, "(")?;
+            write!(f, "({}: ", self.exp.node_id().as_usize())?;
         }
         match self.exp {
             Invalid(_) => write!(f, "*invalid*"),

@@ -17,12 +17,12 @@ use move_model::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt::Debug,
+    fmt::{self, Debug, Formatter},
     iter::{zip, IntoIterator, Iterator},
     vec::Vec,
 };
 
-static SIMPLIFIER_DEBUG: bool = false;
+static SIMPLIFIER_DEBUG: bool = true;
 
 pub fn run_simplifier(env: &mut GlobalEnv, eliminate_code: bool) {
     let mut rewriter = SimplifierRewriter::new(env, eliminate_code);
@@ -112,6 +112,80 @@ where
 
     pub fn borrow_map(&self) -> &BTreeMap<K, V> {
         &self.values
+    }
+}
+
+struct DisplayScopedMap<'a, 'env, K, V> {
+    map: &'a ScopedMap<K, V>,
+    env: &'env GlobalEnv,
+}
+
+impl<'a, 'env, K, V> DisplayScopedMap<'a, 'env, K, V> {
+    pub fn new(map: &'a ScopedMap<K, V>, env: &'env GlobalEnv) -> Self {
+        Self { map, env }
+    }
+}
+
+impl<'a, 'env> fmt::Display for DisplayScopedMap<'a, 'env, Symbol, NodeId> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.map
+                .values
+                .iter()
+                .map(|(sym, node_id)| {
+                    format!(
+                        "({} -> {})",
+                        sym.display(self.env.symbol_pool()),
+                        node_id.as_usize(),
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+impl<'a, 'env> fmt::Display for DisplayScopedMap<'a, 'env, Symbol, Symbol> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.map
+                .values
+                .iter()
+                .map(|(sym, sym2)| {
+                    format!(
+                        "({} -> {})",
+                        sym.display(self.env.symbol_pool()),
+                        sym2.display(self.env.symbol_pool()),
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+impl<'a, 'env> fmt::Display for DisplayScopedMap<'a, 'env, Symbol, SimpleValue> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.map
+                .values
+                .iter()
+                .map(|(sym, simple_value)| {
+                    format!(
+                        "({} -> {})",
+                        sym.display(self.env.symbol_pool()),
+                        DisplaySimpleValue::new(simple_value, self.env),
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 
@@ -323,6 +397,30 @@ enum SimpleValue {
     Unknown,
 }
 
+struct DisplaySimpleValue<'a, 'env> {
+    val: &'a SimpleValue,
+    env: &'env GlobalEnv,
+}
+
+impl<'a, 'env> DisplaySimpleValue<'a, 'env> {
+    pub fn new(val: &'a SimpleValue, env: &'env GlobalEnv) -> Self {
+        Self { val, env }
+    }
+}
+
+impl<'a, 'env> fmt::Display for DisplaySimpleValue<'a, 'env> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use SimpleValue::*;
+        match self.val {
+            Value(value) => write!(f, "Value({})", self.env.display(value)),
+            Temporary(idx) => write!(f, "Temporary({})", idx),
+            LocalVar(sym) => write!(f, "LocalVar({})", sym.display(self.env.symbol_pool())),
+            Unknown => write!(f, "Unknown"),
+            NonConstant => write!(f, "NonConstant"),
+        }
+    }
+}
+
 impl<'env> SimplifierRewriter<'env> {
     fn new(env: &'env GlobalEnv, eliminate_code: bool) -> Self {
         let debug = env
@@ -358,7 +456,23 @@ impl<'env> SimplifierRewriter<'env> {
         self.values.clear();
         self.remapped_symbol.clear();
         if SIMPLIFIER_DEBUG {
-            eprintln!("Unsafe variables are {:#?}", self.unsafe_variables);
+            eprintln!(
+                "Unsafe variables are {{{:#?}}}",
+                self.unsafe_variables
+                    .iter()
+                    .map(|(sym, opt_nodeid)| {
+                        format!(
+                            "({}, {})",
+                            sym.display(self.env.symbol_pool()),
+                            match opt_nodeid {
+                                None => "None".to_owned(),
+                                Some(nodeid) => format!("{}", nodeid.as_usize()),
+                            }
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            );
         }
         self.rewrite_exp(exp)
     }
@@ -367,7 +481,24 @@ impl<'env> SimplifierRewriter<'env> {
     /// build an expression to produce that value. `sym` is unremapped.
     fn rewrite_to_recorded_value(&mut self, id: NodeId, sym: Symbol) -> Option<Exp> {
         let remapped_sym = self.remapped_symbol.get(&sym).unwrap_or(&sym);
-        if let Some(val) = self.values.get(remapped_sym) {
+        if SIMPLIFIER_DEBUG {
+            eprintln!(
+                "In rewriting_to_recorded_value(id={}, sym={}), remapped_sym={}",
+                id.as_usize(),
+                sym.display(self.env.symbol_pool()),
+                remapped_sym.display(self.env.symbol_pool()),
+            );
+        }
+        let result = if let Some(val) = self.values.get(remapped_sym) {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "In rewriting_to_recorded_value(id={}, sym={}), remapped_sym={}, val=Some({})",
+                    id.as_usize(),
+                    sym.display(self.env.symbol_pool()),
+                    remapped_sym.display(self.env.symbol_pool()),
+                    DisplaySimpleValue::new(val, self.env)
+                );
+            }
             use SimpleValue::*;
             match val {
                 Value(val) => Some(ExpData::Value(id, val.clone()).into_exp()),
@@ -376,8 +507,34 @@ impl<'env> SimplifierRewriter<'env> {
                 Unknown => Some(ExpData::LocalVar(id, *remapped_sym).into_exp()),
             }
         } else {
+            if SIMPLIFIER_DEBUG {
+                eprintln!(
+                    "In rewriting_to_recorded_value(id={}, sym={}), remapped_sym={}, val=None",
+                    id.as_usize(),
+                    sym.display(self.env.symbol_pool()),
+                    remapped_sym.display(self.env.symbol_pool()),
+                );
+            }
             Some(ExpData::LocalVar(id, *remapped_sym).into_exp())
+        };
+        if SIMPLIFIER_DEBUG {
+            if let Some(e) = &result {
+                eprintln!(
+                    "In rewriting_to_recorded_value(id={}, sym={}), remapped_sym={}, result=Some({})",
+                    id.as_usize(),
+                    sym.display(self.env.symbol_pool()),
+                    remapped_sym.display(self.env.symbol_pool()),
+                    e.display(self.env))
+            } else {
+                eprintln!(
+                    "In rewriting_to_recorded_value(id={}, sym={}), remapped_sym={}, result=None",
+                    id.as_usize(),
+                    sym.display(self.env.symbol_pool()),
+                    remapped_sym.display(self.env.symbol_pool())
+                );
+            }
         }
+        result
     }
 
     // Try resolving the value of `remapped_sym`.
@@ -679,25 +836,18 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         }
         // Rename local variables in the pattern.
         let opt_new_pat = pat.replace_vars(self.remapped_symbol.borrow_map());
-        if let Some(new_pat) = &opt_new_pat {
-            if SIMPLIFIER_DEBUG {
-                eprintln!(
-                    "Entering block {}, Pat was {}, renamed to {}, remapped_symbol map is {:#?}",
-                    id.as_usize(),
-                    pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
-                    new_pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
-                    self.remapped_symbol.borrow_map(),
-                );
-            }
-        } else {
-            if SIMPLIFIER_DEBUG {
-                eprintln!(
-                    "Entering block {}, Pat was {}, renamed to None, remapped_symbol map is {:#?}",
-                    id.as_usize(),
-                    pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
-                    self.remapped_symbol.borrow_map(),
-                );
-            }
+        if SIMPLIFIER_DEBUG {
+            eprintln!(
+                "Entering block {}, Pat was {}, renamed to {}, remapped_symbol map is {}",
+                id.as_usize(),
+                pat.to_string(self.env, &TypeDisplayContext::new(self.env)),
+                if let Some(new_pat) = &opt_new_pat {
+                    new_pat.to_string(self.env, &TypeDisplayContext::new(self.env))
+                } else {
+                    "None".to_owned()
+                },
+                DisplayScopedMap::new(&self.remapped_symbol, self.env),
+            );
         }
         opt_new_pat
     }
