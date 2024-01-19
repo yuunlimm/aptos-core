@@ -8,11 +8,15 @@ license = "Apache-2.0"
 
 [dependencies]
 move-command-line-common = { path = "../../move-command-line-common" }
+move-compiler-v2 = { path = ".." }
 once_cell = "1.7.2"
 
 [dev-dependencies]
 datatest-stable = "0.1.1"
 move-transactional-test-runner = { path = "../../testing-infra/transactional-test-runner" }
+
+[features]
+verbose-debug-print = ["move-compiler-v2/verbose-debug-print"]
 
 [[test]]
 name = "tests"
