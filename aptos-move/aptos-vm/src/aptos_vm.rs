@@ -54,7 +54,7 @@ use aptos_types::{
             UserTransaction,
         },
         TransactionOutput, TransactionPayload, TransactionStatus, VMValidatorResult,
-        WriteSetPayload,
+        ViewFunctionOutput, WriteSetPayload,
     },
     validator_txn::ValidatorTransaction,
     vm_status::{AbortLocation, StatusCode, VMStatus},
@@ -1807,7 +1807,7 @@ impl AptosVM {
         type_args: Vec<TypeTag>,
         arguments: Vec<Vec<u8>>,
         gas_budget: u64,
-    ) -> Result<(Vec<Vec<u8>>, u64)> {
+    ) -> Result<ViewFunctionOutput> {
         let resolver = state_view.as_move_resolver();
         let vm = AptosVM::new(&resolver);
         let log_context = AdapterLogSchema::new(state_view.id(), 0);
@@ -1850,7 +1850,7 @@ impl AptosVM {
         let gas_used = GasQuantity::new(gas_budget)
             .checked_sub(gas_meter.balance())
             .expect("Balance should always be less than or equal to max gas amount");
-        Ok((result, gas_used.into()))
+        Ok(ViewFunctionOutput::new(result, gas_used.into()))
     }
 
     fn run_prologue_with_payload(
