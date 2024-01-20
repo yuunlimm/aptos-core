@@ -32,13 +32,7 @@ module 0x8675309::M {
               let n1: M::Nat<u64> = pack M::Nat<u64>(0);
               {
                 let n2: M::Nat<M::S> = pack M::Nat<M::S>(Deref(Borrow(Immutable)(s$0$)));
-                M::R{ s: _, f: _, n1: _, n2: _ } = {
-                  let $s: M::S = s$0$;
-                  {
-                    let $n2: M::Nat<M::S> = n2;
-                    pack M::R($s, 0, n1, $n2)
-                  }
-                };
+                M::R{ s: _, f: _, n1: _, n2: _ } = pack M::R(s$0$, 0, n1, n2);
                 pack M::Nat<M::Nat<M::Nat<M::S>>>(pack M::Nat<M::Nat<M::S>>(pack M::Nat<M::S>(pack M::S(0))));
                 Tuple()
               }

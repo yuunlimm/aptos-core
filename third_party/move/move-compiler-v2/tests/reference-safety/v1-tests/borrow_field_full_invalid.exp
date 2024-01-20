@@ -26,7 +26,7 @@ error: cannot dereference local `inner` which is still mutable borrowed
 27 │         *inner;
    │         ^^^^^^ dereferenced here
 
-error: cannot dereference local `c` which is still mutable borrowed
+error: cannot dereference local `inner` which is still mutable borrowed
    ┌─ tests/reference-safety/v1-tests/borrow_field_full_invalid.move:33:9
    │
 32 │         let f1 = &mut inner.f1;

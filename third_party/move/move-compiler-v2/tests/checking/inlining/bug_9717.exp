@@ -3,12 +3,12 @@ module 0xcafe::vectors {
     use std::vector;
     public entry fun guess_flips(flips: vector<u8>) {
         {
-          let (flips: &vector<u8>) = Tuple(Borrow(Immutable)(flips));
+          let (flips$0$: &vector<u8>) = Tuple(Borrow(Immutable)(flips));
           {
             let i: u64 = 0;
             loop {
-              if Lt<u64>(i, vector::length<u8>(flips)) {
-                if Neq<u8>(Deref(vector::borrow<u8>(flips, i)), 0) {
+              if Lt<u64>(i, vector::length<u8>(flips$0$)) {
+                if Neq<u8>(Deref(vector::borrow<u8>(flips$0$, i)), 0) {
                   break
                 } else {
                   Tuple()
@@ -49,12 +49,12 @@ module 0xcafe::vectors {
     }
     public entry fun guess_without_break_with_inline(flips: vector<u8>) {
         {
-          let (flips: &vector<u8>) = Tuple(Borrow(Immutable)(flips));
+          let (flips$1$: &vector<u8>) = Tuple(Borrow(Immutable)(flips));
           {
             let i: u64 = 0;
             loop {
-              if Lt<u64>(i, vector::length<u8>(flips)) {
-                if Eq<u8>(Deref(vector::borrow<u8>(flips, i)), 0) {
+              if Lt<u64>(i, vector::length<u8>(flips$1$)) {
+                if Eq<u8>(Deref(vector::borrow<u8>(flips$1$, i)), 0) {
                   Tuple()
                 } else {
                   Abort(3)

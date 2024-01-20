@@ -68,19 +68,25 @@ module 0x8675::M {
     }
     private fun test1(r: u64): u64 {
         {
-          let t2: u64 = 0;
-          loop {
-            if Gt<u64>(r, 0) {
-              r: u64 = Sub<u64>(r, 1);
-              t2: u64 = Add<u64>(t2, r);
-              Tuple()
-            } else {
-              break
-            }
-          };
+          let t: u64 = r;
           {
-            let t3: u64 = Add<u64>(Add<u64>(r, r), t2);
-            t3
+            let t2: u64 = 0;
+            loop {
+              if Gt<u64>(r, 0) {
+                {
+                  let x: u64 = r;
+                  r: u64 = Sub<u64>(r, 1);
+                  t2: u64 = Add<u64>(t2, x);
+                  Tuple()
+                }
+              } else {
+                break
+              }
+            };
+            {
+              let t3: u64 = Add<u64>(Add<u64>(r, t), t2);
+              t3
+            }
           }
         }
     }
@@ -89,18 +95,18 @@ module 0x8675::M {
           let t: u64 = Deref(r);
           {
             let t3: u64 = {
-              let (x: u64, _) = Tuple(x, r);
+              let (x$4$: u64, _) = Tuple(x, r);
               {
-                let r: u64 = Add<u64>(x, 3);
+                let r$0$: u64 = Add<u64>(x$4$, 3);
                 loop {
-                  if Gt<u64>(x, 0) {
-                    x: u64 = Sub<u64>(x, Deref(r));
+                  if Gt<u64>(x$4$, 0) {
+                    x$4$: u64 = Sub<u64>(x$4$, Deref(r));
                     Tuple()
                   } else {
                     break
                   }
                 };
-                Add<u64>(r, x)
+                Add<u64>(r$0$, x$4$)
               }
             };
             {

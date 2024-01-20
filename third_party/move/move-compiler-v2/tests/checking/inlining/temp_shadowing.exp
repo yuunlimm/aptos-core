@@ -7,13 +7,13 @@ module 0x42::Test {
             if Lt<u64>(a, b) {
               a: u64 = Add<u64>(a, 1);
               sum: u64 = Add<u64>({
-                let (a: u64, _) = Tuple(a, b);
+                let (a$0$: u64, _) = Tuple(a, b);
                 {
                   let sum$0$: u64 = 0;
                   loop {
-                    if Lt<u64>(a, b) {
-                      a: u64 = Add<u64>(a, 1);
-                      sum$0$: u64 = Add<u64>(sum$0$, a);
+                    if Lt<u64>(a$0$, b) {
+                      a$0$: u64 = Add<u64>(a$0$, 1);
+                      sum$0$: u64 = Add<u64>(sum$0$, a$0$);
                       Tuple()
                     } else {
                       break

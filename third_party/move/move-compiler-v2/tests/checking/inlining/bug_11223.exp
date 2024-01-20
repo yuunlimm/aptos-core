@@ -4,10 +4,7 @@ module 0xcafe::vectors {
     public entry fun guess_flips_break2(flips: vector<u8>): u64 {
         {
           let flipsref5: &vector<u8> = Borrow(Immutable)(flips);
-          {
-            let x: &vector<u8> = flipsref5;
-            vector::length<u8>(x)
-          }
+          vector::length<u8>(flipsref5)
         }
     }
     spec fun $guess_flips_break2(flips: vector<u8>): u64 {

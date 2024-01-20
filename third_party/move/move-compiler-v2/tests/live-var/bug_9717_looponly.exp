@@ -19,7 +19,6 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      var $t15: u8
      var $t16: &u8
      var $t17: u8
-     var $t18: &vector<u8>
   0: $t3 := 0
   1: $t2 := infer($t3)
   2: $t5 := borrow_local($t0)
@@ -58,9 +57,8 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
  35: label L4
  36: goto 4
  37: label L1
- 38: $t18 := infer($t4)
- 39: $t1 := vector::length<u8>($t18)
- 40: return $t1
+ 38: $t1 := vector::length<u8>($t4)
+ 39: return $t1
 }
 
 ============ after LiveVarAnalysisProcessor: ================
@@ -87,7 +85,6 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      var $t18: &vector<u8>
      var $t19: &vector<u8>
      var $t20: &vector<u8>
-     var $t21: &vector<u8>
      # live vars: $t0
   0: $t3 := 0
      # live vars: $t0, $t3
@@ -99,9 +96,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t2, $t4
   4: label L0
      # live vars: $t2, $t4
-  5: $t19 := copy($t4)
-     # live vars: $t2, $t4, $t19
-  6: $t7 := vector::length<u8>($t19)
+  5: $t18 := copy($t4)
+     # live vars: $t2, $t4, $t18
+  6: $t7 := vector::length<u8>($t18)
      # live vars: $t2, $t4, $t7
   7: $t6 := <($t2, $t7)
      # live vars: $t2, $t4, $t6
@@ -109,9 +106,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t2, $t4
   9: label L2
      # live vars: $t2, $t4
- 10: $t20 := copy($t4)
-     # live vars: $t2, $t4, $t20
- 11: $t10 := vector::borrow<u8>($t20, $t2)
+ 10: $t19 := copy($t4)
+     # live vars: $t2, $t4, $t19
+ 11: $t10 := vector::borrow<u8>($t19, $t2)
      # live vars: $t2, $t4, $t10
  12: $t9 := read_ref($t10)
      # live vars: $t2, $t4, $t9
@@ -137,9 +134,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t4, $t12
  23: $t2 := copy($t12)
      # live vars: $t2, $t4
- 24: $t21 := copy($t4)
-     # live vars: $t2, $t4, $t21
- 25: $t16 := vector::borrow<u8>($t21, $t2)
+ 24: $t20 := copy($t4)
+     # live vars: $t2, $t4, $t20
+ 25: $t16 := vector::borrow<u8>($t20, $t2)
      # live vars: $t2, $t4, $t16
  26: $t15 := read_ref($t16)
      # live vars: $t2, $t4, $t15
@@ -171,9 +168,7 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t4
  40: label L1
      # live vars: $t4
- 41: $t18 := move($t4)
-     # live vars: $t18
- 42: $t1 := vector::length<u8>($t18)
+ 41: $t1 := vector::length<u8>($t4)
      # live vars: $t1
- 43: return $t1
+ 42: return $t1
 }

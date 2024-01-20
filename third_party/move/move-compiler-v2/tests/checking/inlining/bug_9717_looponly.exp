@@ -24,10 +24,7 @@ module 0xcafe::vectors {
                 break
               }
             };
-            {
-              let x: &vector<u8> = flipsref5;
-              vector::length<u8>(x)
-            }
+            vector::length<u8>(flipsref5)
           }
         }
     }
@@ -55,7 +52,6 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      var $t15: u8
      var $t16: &u8
      var $t17: u8
-     var $t18: &vector<u8>
   0: $t3 := 0
   1: $t2 := infer($t3)
   2: $t5 := borrow_local($t0)
@@ -94,9 +90,8 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
  35: label L4
  36: goto 4
  37: label L1
- 38: $t18 := infer($t4)
- 39: $t1 := vector::length<u8>($t18)
- 40: return $t1
+ 38: $t1 := vector::length<u8>($t4)
+ 39: return $t1
 }
 
 ============ after VisibilityChecker: ================
@@ -120,7 +115,6 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      var $t15: u8
      var $t16: &u8
      var $t17: u8
-     var $t18: &vector<u8>
   0: $t3 := 0
   1: $t2 := infer($t3)
   2: $t5 := borrow_local($t0)
@@ -159,9 +153,8 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
  35: label L4
  36: goto 4
  37: label L1
- 38: $t18 := infer($t4)
- 39: $t1 := vector::length<u8>($t18)
- 40: return $t1
+ 38: $t1 := vector::length<u8>($t4)
+ 39: return $t1
 }
 
 ============ after LiveVarAnalysisProcessor: ================
@@ -188,7 +181,6 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      var $t18: &vector<u8>
      var $t19: &vector<u8>
      var $t20: &vector<u8>
-     var $t21: &vector<u8>
      # live vars: $t0
   0: $t3 := 0
      # live vars: $t0, $t3
@@ -200,9 +192,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t2, $t4
   4: label L0
      # live vars: $t2, $t4
-  5: $t19 := copy($t4)
-     # live vars: $t2, $t4, $t19
-  6: $t7 := vector::length<u8>($t19)
+  5: $t18 := copy($t4)
+     # live vars: $t2, $t4, $t18
+  6: $t7 := vector::length<u8>($t18)
      # live vars: $t2, $t4, $t7
   7: $t6 := <($t2, $t7)
      # live vars: $t2, $t4, $t6
@@ -210,9 +202,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t2, $t4
   9: label L2
      # live vars: $t2, $t4
- 10: $t20 := copy($t4)
-     # live vars: $t2, $t4, $t20
- 11: $t10 := vector::borrow<u8>($t20, $t2)
+ 10: $t19 := copy($t4)
+     # live vars: $t2, $t4, $t19
+ 11: $t10 := vector::borrow<u8>($t19, $t2)
      # live vars: $t2, $t4, $t10
  12: $t9 := read_ref($t10)
      # live vars: $t2, $t4, $t9
@@ -238,9 +230,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t4, $t12
  23: $t2 := copy($t12)
      # live vars: $t2, $t4
- 24: $t21 := copy($t4)
-     # live vars: $t2, $t4, $t21
- 25: $t16 := vector::borrow<u8>($t21, $t2)
+ 24: $t20 := copy($t4)
+     # live vars: $t2, $t4, $t20
+ 25: $t16 := vector::borrow<u8>($t20, $t2)
      # live vars: $t2, $t4, $t16
  26: $t15 := read_ref($t16)
      # live vars: $t2, $t4, $t15
@@ -272,11 +264,9 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # live vars: $t4
  40: label L1
      # live vars: $t4
- 41: $t18 := move($t4)
-     # live vars: $t18
- 42: $t1 := vector::length<u8>($t18)
+ 41: $t1 := vector::length<u8>($t4)
      # live vars: $t1
- 43: return $t1
+ 42: return $t1
 }
 
 ============ after MemorySafetyProcessor: ================
@@ -303,7 +293,6 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      var $t18: &vector<u8>
      var $t19: &vector<u8>
      var $t20: &vector<u8>
-     var $t21: &vector<u8>
      # live vars: $t0
      # graph: {}
      # local_to_label: {}
@@ -336,98 +325,98 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
   4: label L0
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
-  5: $t19 := copy($t4)
-     # live vars: $t2, $t4, $t19
-     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L1281],L1281=local($t19)[]}
-     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t19=L1281}
+  5: $t18 := copy($t4)
+     # live vars: $t2, $t4, $t18
+     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L1281],L1281=local($t18)[]}
+     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t18=L1281}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20}
      #
-  6: $t7 := vector::length<u8>($t19)
+  6: $t7 := vector::length<u8>($t18)
      # live vars: $t2, $t4, $t7
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
   7: $t6 := <($t2, $t7)
      # live vars: $t2, $t4, $t6
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
   8: if ($t6) goto 9 else goto 36
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
   9: label L2
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
- 10: $t20 := copy($t4)
-     # live vars: $t2, $t4, $t20
-     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L2561],L2561=local($t20)[]}
-     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t20=L2561}
+ 10: $t19 := copy($t4)
+     # live vars: $t2, $t4, $t19
+     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L2561],L2561=local($t19)[]}
+     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t19=L2561}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t20}
      #
- 11: $t10 := vector::borrow<u8>($t20, $t2)
+ 11: $t10 := vector::borrow<u8>($t19, $t2)
      # live vars: $t2, $t4, $t10
-     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L2561],L2561=local($t20)[call(false) -> L2816],L2816=local($t10)[]}
-     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t10=L2816,$t20=L2561}
+     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L2561],L2561=local($t19)[call(false) -> L2816],L2816=local($t10)[]}
+     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t10=L2816,$t19=L2561}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  12: $t9 := read_ref($t10)
      # live vars: $t2, $t4, $t9
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  13: $t11 := 0
      # live vars: $t2, $t4, $t9, $t11
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t10,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t10,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  14: $t8 := !=($t9, $t11)
      # live vars: $t2, $t4, $t8
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  15: if ($t8) goto 16 else goto 19
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  16: label L5
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  17: goto 40
      # live vars: $t2, $t4
@@ -441,91 +430,91 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  19: label L6
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  20: label L7
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  21: $t13 := 1
      # live vars: $t2, $t4, $t13
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  22: $t12 := +($t2, $t13)
      # live vars: $t4, $t12
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  23: $t2 := copy($t12)
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
- 24: $t21 := copy($t4)
-     # live vars: $t2, $t4, $t21
-     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L6145],L6145=local($t21)[]}
-     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t21=L6145}
+ 24: $t20 := copy($t4)
+     # live vars: $t2, $t4, $t20
+     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L6145],L6145=local($t20)[]}
+     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t20=L6145}
      # global_to_label: {}
-     # moved: {$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20}
+     # moved: {$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19}
      #
- 25: $t16 := vector::borrow<u8>($t21, $t2)
+ 25: $t16 := vector::borrow<u8>($t20, $t2)
      # live vars: $t2, $t4, $t16
-     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L6145],L6145=local($t21)[call(false) -> L6400],L6400=local($t16)[]}
-     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t16=L6400,$t21=L6145}
+     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L6145],L6145=local($t20)[call(false) -> L6400],L6400=local($t16)[]}
+     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t16=L6400,$t20=L6145}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t17,$t18,$t19,$t20}
      #
  26: $t15 := read_ref($t16)
      # live vars: $t2, $t4, $t15
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t16,$t17,$t18,$t19,$t20}
      #
  27: $t17 := 5
      # live vars: $t2, $t4, $t15, $t17
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t16,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t16,$t18,$t19,$t20}
      #
  28: $t14 := ==($t15, $t17)
      # live vars: $t2, $t4, $t14
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  29: if ($t14) goto 30 else goto 33
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  30: label L8
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  31: goto 40
      # live vars: $t2, $t4
@@ -539,77 +528,70 @@ public fun vectors::guess_flips_break2($t0: vector<u8>): u64 {
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  33: label L9
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  34: label L10
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  35: goto 38
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  36: label L3
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  37: goto 40
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  38: label L4
      # live vars: $t2, $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  39: goto 4
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
  40: label L1
      # live vars: $t4
      # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[]}
      # local_to_label: {$t0=L512,$t4=L769,$t5=L513}
      # global_to_label: {}
-     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
+     # moved: {$t2,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
- 41: $t18 := move($t4)
-     # live vars: $t18
-     # graph: {L512=local($t0)[borrow(false) -> L513],L513=local($t5)[skip -> L769],L769=local($t4)[skip -> L10497],L10497=local($t18)[]}
-     # local_to_label: {$t0=L512,$t4=L769,$t5=L513,$t18=L10497}
-     # global_to_label: {}
-     # moved: {$t2,$t4,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t19,$t20,$t21}
-     #
- 42: $t1 := vector::length<u8>($t18)
+ 41: $t1 := vector::length<u8>($t4)
      # live vars: $t1
      # graph: {}
      # local_to_label: {}
      # global_to_label: {}
-     # moved: {$t2,$t4,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20,$t21}
+     # moved: {$t2,$t4,$t5,$t7,$t9,$t10,$t11,$t13,$t15,$t16,$t17,$t18,$t19,$t20}
      #
- 43: return $t1
+ 42: return $t1
 }

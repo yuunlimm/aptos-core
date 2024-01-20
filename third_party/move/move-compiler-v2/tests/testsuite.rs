@@ -259,14 +259,16 @@ impl TestConfig {
             if options.debug {
                 eprint!("After inlining, GlobalEnv={}", env.dump_env());
             }
+        }
 
+        if ok {
             // Run simplifier.  No code elimination for now.
             ast_simplifier::run_simplifier(&mut env, false);
             ok = Self::check_diags(&mut test_output.borrow_mut(), &env);
-        }
 
-        if ok && options.debug {
-            eprint!("After simplifier, GlobalEnv={}", env.dump_env());
+            if ok && options.debug {
+                eprint!("After simplifier, GlobalEnv={}", env.dump_env());
+            }
         }
 
         if ok && self.dump_ast {

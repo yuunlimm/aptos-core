@@ -166,7 +166,8 @@ fn find_possibly_modified_vars(
                                 current_binding
                             );
                         }
-                        unsafe_variables.insert((sym, current_binding.copied()));
+                        assert!(current_binding.is_none());
+                        unsafe_variables.insert((sym, None));
                     };
                 } else {
                     let loc = env.get_node_loc(*id);
@@ -311,7 +312,8 @@ struct SimplifierRewriter<'env> {
     remapped_symbol: ScopedMap<Symbol, Symbol>,
 
     // Tracks constant values from scope.  All symbols in keys and values are remapped.  A variable
-    // without a constant value or a constant but known value is bound to `SimpleValue::Unknown`.
+    // without a constant value in this scope is set to `SimpleValue::NonConstant`, while a
+    // (remapped) variable `sym` with an unknown or unrepresentable value is bound to `LocalVar(sym)`.
     values: ScopedMap<Symbol, SimpleValue>,
 }
 
@@ -320,7 +322,7 @@ enum SimpleValue {
     Value(Value),
     Temporary(TempIndex),
     LocalVar(Symbol),
-    Unknown,
+    NonConstant,
 }
 
 impl<'env> SimplifierRewriter<'env> {
@@ -360,16 +362,25 @@ impl<'env> SimplifierRewriter<'env> {
         if SIMPLIFIER_DEBUG {
             eprintln!("Unsafe variables are {:#?}", self.unsafe_variables);
         }
+        // Enter Function scope (a specialized `rewrite_enter_scope()` call)
         self.values.enter_scope();
-        for param in &self.cached_params {
+        self.remapped_symbol.enter_scope();
+        for (idx, param) in self.cached_params.iter().enumerate() {
             let sym = param.0;
-            self.values.insert(sym, SimpleValue::Unknown);
+            self.remapped_symbol.insert(sym, sym);
+            if !self.unsafe_variables.contains(&(sym, None)) {
+                self.values.insert(sym, SimpleValue::Temporary(idx));
+            } else {
+                self.values.insert(sym, SimpleValue::NonConstant);
+            }
         }
+        // Now rewrite the body
         self.rewrite_exp(exp)
     }
 
     /// If symbol `sym` has a recorded value that is currently visible, then
-    /// build an expression to produce that value. `sym` is unremapped.
+    /// build an expression to produce that value. `sym` is unremapped on entry.
+    /// The resulting expression has any variables in it remapped.
     fn rewrite_to_recorded_value(&mut self, id: NodeId, sym: Symbol) -> Option<Exp> {
         let remapped_sym = self.remapped_symbol.get(&sym).unwrap_or(&sym);
         if let Some(val) = self.values.get(remapped_sym) {
@@ -378,7 +389,7 @@ impl<'env> SimplifierRewriter<'env> {
                 Value(val) => Some(ExpData::Value(id, val.clone()).into_exp()),
                 Temporary(idx) => Some(ExpData::Temporary(id, *idx).into_exp()),
                 LocalVar(sym) => Some(ExpData::LocalVar(id, *sym).into_exp()),
-                Unknown => Some(ExpData::LocalVar(id, *remapped_sym).into_exp()),
+                NonConstant => Some(ExpData::LocalVar(id, *remapped_sym).into_exp()),
             }
         } else {
             if remapped_sym != &sym {
@@ -389,65 +400,27 @@ impl<'env> SimplifierRewriter<'env> {
         }
     }
 
-    // Try resolving the value of `remapped_sym`.
-    // If we can find value for it, return a `SimpleValue` describing that value.
-    // If no useful value is found, returns `SimpleValue::Unknown`.
-    fn resolve_var_value(&self, id: NodeId, remapped_sym: Symbol, count: usize) -> SimpleValue {
-        if SIMPLIFIER_DEBUG {
-            eprintln!(
-                "resolve_var_value({:#?}, {}) iteration {}",
-                id,
-                remapped_sym.display(self.env.symbol_pool()),
-                count
-            );
-        }
-        if let Some(val) = self.values.get(&remapped_sym) {
-            self.resolve_simple_value(id, val.clone(), count)
-        } else {
-            SimpleValue::LocalVar(remapped_sym)
-        }
-    }
-
-    // Try resolving `value`, returning it directly if it is already in its simplest form.
-    //
-    // If it is a variable, then try to resolve the variable to a more interesting
-    // value using `resolve_var_value`.
-    //
-    // Note that a variable in `value` may be remapped or not.
-    fn resolve_simple_value(&self, id: NodeId, value: SimpleValue, count: usize) -> SimpleValue {
-        // While value is a valid variable, keep trying to resolve it.
-        use SimpleValue::*;
-        if SIMPLIFIER_DEBUG {
-            eprintln!(
-                "resolve_simple_value({:#?}, {:#?}) iteration {}",
-                id, value, count
-            );
-        }
-        let new_count = count + 1;
-        assert!(new_count < 10);
-        if let LocalVar(sym) = value {
-            if let Some(mapped_sym) = self.remapped_symbol.get(&sym) {
-                self.resolve_var_value(id, *mapped_sym, new_count)
-            } else {
-                self.resolve_var_value(id, sym, new_count)
-            }
-        } else {
-            value
-        }
-    }
-
-    fn get_constant_or_unmodified_variable(&mut self, exp: Option<Exp>) -> SimpleValue {
+    // Note that exp has already been rewritten.
+    fn expr_to_simple_value(&mut self, exp: Option<Exp>) -> Option<SimpleValue> {
         if let Some(exp) = exp {
             match exp.as_ref() {
-                ExpData::Value(_, val) => SimpleValue::Value(val.clone()),
-                ExpData::LocalVar(id, sym) => {
-                    self.resolve_simple_value(*id, SimpleValue::LocalVar(*sym), 0)
+                ExpData::Value(_, val) => Some(SimpleValue::Value(val.clone())),
+                ExpData::LocalVar(_id, sym) => self.values.get(sym).cloned(),
+                ExpData::Temporary(id, idx) => {
+                    if let Some(sym) = self.cached_params.get(*idx).map(|p| &p.0) {
+                        self.values.get(sym).cloned()
+                    } else {
+                        panic!(
+                            "Invalid index {} for Temporary at node {}",
+                            *idx,
+                            id.as_usize()
+                        )
+                    }
                 },
-                ExpData::Temporary(_id, idx) => SimpleValue::Temporary(*idx),
-                _ => SimpleValue::Unknown,
+                _ => None,
             }
         } else {
-            SimpleValue::Unknown
+            None
         }
     }
 
@@ -500,10 +473,15 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         self.remapped_symbol.enter_scope();
         for (_, sym) in vars {
             self.visiting_binding.insert(*sym, id);
+            let sym_is_unsafe = self.unsafe_variables.contains(&(*sym, Some(id)));
             let mapped_sym = {
                 let new_sym = if self.remapped_symbol.contains_key(sym) {
+                    // There is already a var named `sym` in the enclosing scope.
+                    // Rename this one.
                     self.env.symbol_pool().make_unique(*sym)
                 } else {
+                    // There is no var named `sym` in an enclosing scope,
+                    // so we can just use it without renaming.
                     *sym
                 };
                 if SIMPLIFIER_DEBUG {
@@ -524,7 +502,14 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
                     id.as_usize()
                 );
             }
-            self.values.insert(mapped_sym, SimpleValue::Unknown);
+            self.values.insert(
+                mapped_sym,
+                if sym_is_unsafe {
+                    SimpleValue::NonConstant
+                } else {
+                    SimpleValue::LocalVar(mapped_sym)
+                },
+            );
         }
     }
 
@@ -651,24 +636,27 @@ impl<'env> ExpRewriterFunctions for SimplifierRewriter<'env> {
         let mut new_binding = Vec::new();
         if let Some(exp) = binding {
             for (old_var, opt_new_binding_exp) in pat.vars_and_exprs(exp) {
-                if !self.unsafe_variables.contains(&(old_var, Some(id))) {
-                    // Try to evaluate opt_new_binding_exp as a constant/var  using current variable bindings
-                    let val = self.get_constant_or_unmodified_variable(opt_new_binding_exp);
-                    new_binding.push((old_var, val));
+                if self.unsafe_variables.contains(&(old_var, Some(id))) {
+                    // Mark this variable as unsafe.
+                    new_binding.push((old_var, SimpleValue::NonConstant));
                 } else {
-                    // In the current scope, old_var may be modified.  Shadow old value.
-                    new_binding.push((old_var, SimpleValue::Unknown));
+                    // Try to evaluate opt_new_binding_exp as a constant/var.
+                    // If unrepresentable as a SimpleValue, returns None.
+                    if let Some(val) = self.expr_to_simple_value(opt_new_binding_exp) {
+                        new_binding.push((old_var, val));
+                    }
                 }
             }
         } else {
             // Body with no bindings, values have no known value.
+            // Treat them all as NonConstant.
             for (_, old_var) in pat.vars() {
-                new_binding.push((old_var, SimpleValue::Unknown));
+                new_binding.push((old_var, SimpleValue::NonConstant));
             }
         }
         // Bound vars block any prior values
         self.rewrite_enter_scope(id, pat.vars().iter());
-        // Add any const bindings to our map.
+        // Add bindings to the scoped value map.
         for (var, value) in new_binding.into_iter() {
             let mapped_var = self
                 .remapped_symbol
